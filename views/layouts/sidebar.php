@@ -171,9 +171,13 @@ if (Auth::isHR()) {
     <div class="sidebar-footer">
         <a href="<?= url('profile') ?>" class="user-card" style="text-decoration: none;">
             <div class="user-avatar-wrap">
-                <div class="user-avatar">
-                    <?= strtoupper(substr($currentUser['name'] ?? 'U', 0, 1)) ?>
-                </div>
+                <?php if (!empty($currentUser['avatar']) && file_exists(BASE_PATH . '/' . $currentUser['avatar'])): ?>
+                    <img src="<?= url($currentUser['avatar']) ?>?t=<?= time() ?>" alt="<?= e($currentUser['name'] ?? 'User') ?>" class="user-avatar" style="object-fit: cover; width: 38px; height: 38px; border-radius: var(--radius-full);">
+                <?php else: ?>
+                    <div class="user-avatar">
+                        <?= strtoupper(substr($currentUser['name'] ?? 'U', 0, 1)) ?>
+                    </div>
+                <?php endif; ?>
                 <div class="online-dot"></div>
             </div>
             <div class="user-details">

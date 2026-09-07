@@ -87,9 +87,13 @@ require_once BASE_PATH . '/views/layouts/header.php';
                             <tr>
                                 <td>
                                     <div style="display: flex; align-items: center; gap: 12px;">
-                                        <div style="width: 38px; height: 38px; border-radius: var(--radius-full); background: linear-gradient(135deg, #93206c, #0284c7); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                                            <?= strtoupper(substr($emp['first_name'], 0, 1)) ?>
-                                        </div>
+                                        <?php if (!empty($emp['avatar']) && file_exists(BASE_PATH . '/' . $emp['avatar'])): ?>
+                                            <img src="<?= url($emp['avatar']) ?>?t=<?= time() ?>" alt="<?= e($emp['first_name']) ?>" style="width: 38px; height: 38px; border-radius: var(--radius-full); object-fit: cover; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                        <?php else: ?>
+                                            <div style="width: 38px; height: 38px; border-radius: var(--radius-full); background: linear-gradient(135deg, #93206c, #0284c7); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                                <?= strtoupper(substr($emp['first_name'], 0, 1)) ?>
+                                            </div>
+                                        <?php endif; ?>
                                         <div>
                                             <a href="<?= url('employees/view?id=' . $emp['id']) ?>" style="font-weight: 700; color: var(--text-main); text-decoration: none;">
                                                 <?= e($emp['first_name'] . ' ' . $emp['last_name']) ?>

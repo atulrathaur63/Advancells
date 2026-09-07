@@ -7,9 +7,13 @@ require_once BASE_PATH . '/views/layouts/header.php';
 <div class="card" style="margin-bottom: 24px;">
     <div class="card-body" style="display: flex; gap: 24px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 20px;">
-            <div style="width: 84px; height: 84px; border-radius: var(--radius-full); background: linear-gradient(135deg, #4f46e5, #06b6d4); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);">
-                <?= strtoupper(substr($employee['first_name'], 0, 1)) ?>
-            </div>
+            <?php if (!empty($employee['avatar']) && file_exists(BASE_PATH . '/' . $employee['avatar'])): ?>
+                <img src="<?= url($employee['avatar']) ?>?t=<?= time() ?>" alt="<?= e($employee['first_name']) ?>" style="width: 84px; height: 84px; border-radius: var(--radius-full); object-fit: cover; border: 3px solid #ffffff; box-shadow: 0 6px 18px rgba(0,0,0,0.15);">
+            <?php else: ?>
+                <div style="width: 84px; height: 84px; border-radius: var(--radius-full); background: linear-gradient(135deg, #4f46e5, #06b6d4); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);">
+                    <?= strtoupper(substr($employee['first_name'], 0, 1)) ?>
+                </div>
+            <?php endif; ?>
             <div>
                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
                     <h2 style="font-family: var(--font-heading); font-size: 24px; font-weight: 800; color: var(--text-main);">

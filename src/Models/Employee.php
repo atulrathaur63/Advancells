@@ -7,7 +7,7 @@ require_once __DIR__ . '/../Database.php';
 
 class Employee {
     public static function getAll(array $filters = []): array {
-        $sql = "SELECT e.*, u.role, u.status AS user_status,
+        $sql = "SELECT e.*, u.role, u.status AS user_status, u.avatar,
                        d.name AS department_name, des.title AS designation_title,
                        CONCAT(m.first_name, ' ', m.last_name) AS manager_name
                 FROM employees e
@@ -60,7 +60,7 @@ class Employee {
     }
 
     public static function findByUserId(int $userId): ?array {
-         $sql = "SELECT e.*, u.role, d.name AS department_name, des.title AS designation_title
+         $sql = "SELECT e.*, u.role, u.avatar, d.name AS department_name, des.title AS designation_title
                 FROM employees e
                 LEFT JOIN users u ON e.user_id = u.id
                 LEFT JOIN departments d ON e.department_id = d.id

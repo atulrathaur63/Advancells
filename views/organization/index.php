@@ -167,8 +167,12 @@ if (!function_exists('getDeptStyle')) {
                             <div class="org-node-branch <?= $hasChildren ? 'has-children' : 'is-leaf' ?>" data-node-id="<?= $node['id'] ?>">
                                 <div class="org-node-card" id="emp-node-<?= $node['id'] ?>" onclick="openProfileDrawer(<?= htmlspecialchars(json_encode($node), ENT_QUOTES, 'UTF-8') ?>)" style="border-top: 4px solid <?= $style['text'] ?>;">
                                     <div class="org-node-avatar-wrap">
-                                        <div class="org-node-avatar" style="background: <?= $style['bg'] ?>; color: <?= $style['text'] ?>; border: 2px solid <?= $style['border'] ?>;">
-                                            <?= $avatarInitial ?>
+                                        <div class="org-node-avatar" style="background: <?= $style['bg'] ?>; color: <?= $style['text'] ?>; border: 2px solid <?= $style['border'] ?>; overflow: hidden;">
+                                            <?php if (!empty($node['avatar']) && file_exists(BASE_PATH . '/' . $node['avatar'])): ?>
+                                                <img src="<?= url($node['avatar']) ?>" alt="<?= e($node['name']) ?>" style="width: 100%; height: 100%; object-fit: cover;">
+                                            <?php else: ?>
+                                                <?= $avatarInitial ?>
+                                            <?php endif; ?>
                                         </div>
                                         <span class="org-status-indicator" title="Active Workforce"></span>
                                     </div>
@@ -275,8 +279,12 @@ if (!function_exists('getDeptStyle')) {
                             </div>
                             <?php if ($deptHead): ?>
                                 <div style="display: flex; align-items: center; gap: 10px;">
-                                    <div style="width: 32px; height: 32px; border-radius: 50%; background: <?= $deptStyle['bg'] ?>; color: <?= $deptStyle['text'] ?>; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px;">
-                                        <?= strtoupper(substr($deptHead['first_name'], 0, 1)) ?>
+                                    <div style="width: 32px; height: 32px; border-radius: 50%; background: <?= $deptStyle['bg'] ?>; color: <?= $deptStyle['text'] ?>; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; overflow: hidden;">
+                                        <?php if (!empty($deptHead['avatar']) && file_exists(BASE_PATH . '/' . $deptHead['avatar'])): ?>
+                                            <img src="<?= url($deptHead['avatar']) ?>" alt="<?= e($deptHead['name']) ?>" style="width: 100%; height: 100%; object-fit: cover;">
+                                        <?php else: ?>
+                                            <?= strtoupper(substr($deptHead['first_name'], 0, 1)) ?>
+                                        <?php endif; ?>
                                     </div>
                                     <div>
                                         <div style="font-size: 13px; font-weight: 700; color: #1e293b;"><?= e($deptHead['name']) ?></div>
@@ -325,7 +333,7 @@ if (!function_exists('getDeptStyle')) {
     <div style="padding: 24px; overflow-y: auto; flex: 1;">
         <!-- Employee Header -->
         <div style="text-align: center; margin-bottom: 24px;">
-            <div id="drawerAvatar" style="width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: #ffffff; background: linear-gradient(135deg, #93206c, #0284c7); box-shadow: 0 4px 14px rgba(147,32,108,0.25);">
+            <div id="drawerAvatar" style="width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: #ffffff; background: linear-gradient(135deg, #93206c, #0284c7); box-shadow: 0 4px 14px rgba(147,32,108,0.25); overflow: hidden;">
                 U
             </div>
             <h2 id="drawerName" style="font-size: 18px; font-weight: 800; color: #1e293b; margin: 0 0 4px 0;"></h2>
@@ -661,6 +669,7 @@ if (!function_exists('getDeptStyle')) {
 <script>
 // Flat employee data from backend for instant search & drawer
 const orgFlatEmployees = <?= json_encode($flat) ?>;
+const BASE_URL = '<?= rtrim(url(""), "/") ?>';
 let activeDrawerNode = null;
 
 // Zoom & Pan state
@@ -823,9 +832,14 @@ if (searchInput) {
         matches.forEach(m => {
             html += `
                 <div onclick="jumpToNode(${m.id})" style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; display: flex; align-items: center; justify-content: space-between;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
-                    <div>
-                        <div style="font-size: 13px; font-weight: 700; color: #1e293b;">${m.name}</div>
-                        <div style="font-size: 11.5px; color: #64748b;">${m.designation_title} &bull; ${m.department_name}</div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 28px; height: 28px; border-radius: 50%; background: #93206c; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                            ${m.avatar ? `<img src="${BASE_URL}/${m.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : m.first_name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <div style="font-size: 13px; font-weight: 700; color: #1e293b;">${m.name}</div>
+                            <div style="font-size: 11.5px; color: #64748b;">${m.designation_title} &bull; ${m.department_name}</div>
+                        </div>
                     </div>
                     <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 10.5px;">${m.emp_code}</span>
                 </div>
@@ -892,7 +906,12 @@ function jumpToNode(nodeId) {
 function openProfileDrawer(node) {
     activeDrawerNode = node;
 
-    document.getElementById('drawerAvatar').textContent = node.first_name.charAt(0).toUpperCase();
+    const drawerAvatarEl = document.getElementById('drawerAvatar');
+    if (node.avatar) {
+        drawerAvatarEl.innerHTML = `<img src="${BASE_URL}/${node.avatar}" alt="${node.name}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+    } else {
+        drawerAvatarEl.textContent = (node.first_name || node.name || 'U').charAt(0).toUpperCase();
+    }
     document.getElementById('drawerName').textContent = node.name;
     document.getElementById('drawerTitle').textContent = node.designation_title;
     document.getElementById('drawerDept').textContent = node.department_name;
@@ -916,8 +935,8 @@ function openProfileDrawer(node) {
             teamHtml += `
                 <div onclick="jumpToNode(${rep.id})" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <div style="width: 24px; height: 24px; border-radius: 50%; background: #93206c; color: #fff; font-size: 10.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">
-                            ${rep.first_name.charAt(0).toUpperCase()}
+                        <div style="width: 24px; height: 24px; border-radius: 50%; background: #93206c; color: #fff; font-size: 10.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                            ${rep.avatar ? `<img src="${BASE_URL}/${rep.avatar}" style="width: 100%; height: 100%; object-fit: cover;">` : rep.first_name.charAt(0).toUpperCase()}
                         </div>
                         <div style="font-size: 12.5px; font-weight: 600; color: #1e293b;">${rep.name}</div>
                     </div>

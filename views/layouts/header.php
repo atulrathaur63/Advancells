@@ -83,8 +83,12 @@ $pageTitle = $pageTitle ?? 'Dashboard';
                     <span style="font-size: 10px; color: #94a3b8; font-weight: 600;">IST</span>
                 </div>
 
-                <a href="<?= url('profile') ?>" class="header-btn" title="My Profile & Settings">
-                    <i class="fa-solid fa-user-gear"></i>
+                <a href="<?= url('profile') ?>" class="header-btn" title="<?= e($currentUser['name'] ?? 'My Profile') ?> - Profile & Settings" style="padding: 0; overflow: hidden; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%;">
+                    <?php if (!empty($currentUser['avatar']) && file_exists(BASE_PATH . '/' . $currentUser['avatar'])): ?>
+                        <img src="<?= url($currentUser['avatar']) ?>?t=<?= time() ?>" alt="<?= e($currentUser['name'] ?? 'User') ?>" style="width: 100%; height: 100%; object-fit: cover;">
+                    <?php else: ?>
+                        <i class="fa-solid fa-user-gear"></i>
+                    <?php endif; ?>
                 </a>
                 <a href="<?= url('logout') ?>" class="header-btn" title="Sign Out" onclick="return confirmAction('Sign out from your active session?')">
                     <i class="fa-solid fa-arrow-right-from-bracket"></i>
