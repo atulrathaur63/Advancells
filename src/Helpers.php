@@ -165,3 +165,27 @@ function number_to_words_inr(float|int $number): string {
     $points = ($point) ? " and " . $words[floor($point / 10) * 10] . " " . $words[$point = $point % 10] . " Paise" : '';
     return trim($result) . " Rupees" . $points . " Only";
 }
+
+function time_ago(?string $datetime): string {
+    if (empty($datetime)) return 'Just now';
+    $time = strtotime($datetime);
+    if (!$time) return 'Just now';
+    $diff = time() - $time;
+    if ($diff < 60) {
+        return 'Just now';
+    } elseif ($diff < 3600) {
+        $mins = floor($diff / 60);
+        return $mins . 'm ago';
+    } elseif ($diff < 86400) {
+        $hrs = floor($diff / 3600);
+        return $hrs . 'h ago';
+    } elseif ($diff < 172800) {
+        return 'Yesterday';
+    } else {
+        $days = floor($diff / 86400);
+        if ($days < 30) {
+            return $days . 'd ago';
+        }
+        return date('M d', $time);
+    }
+}

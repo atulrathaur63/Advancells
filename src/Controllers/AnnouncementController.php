@@ -6,6 +6,7 @@
 require_once __DIR__ . '/../Auth.php';
 require_once __DIR__ . '/../Helpers.php';
 require_once __DIR__ . '/../Models/Announcement.php';
+require_once __DIR__ . '/../Models/Notification.php';
 
 class AnnouncementController {
     public function index(): void {
@@ -19,6 +20,10 @@ class AnnouncementController {
             $action = $_POST['action'] ?? '';
             if ($action === 'create') {
                 Announcement::create($_POST, Auth::id());
+                $annTitle = trim($_POST['title'] ?? 'Company Announcement');
+                $targetRole = $_POST['target_role'] ?? 'all';
+                $roles = ($targetRole === 'all') ? ['super_admin', 'hr_admin', 'manager', 'employee'] : [$targetRole];
+                Notification::sendToRole($roles, 'announcement', 'New Announcement', $annTitle, 'announcements', 'fa-bullhorn', '#93206c');
                 flash('success', 'Announcement published company-wide!');
             } elseif ($action === 'delete') {
                 $id = (int)$_POST['id'];

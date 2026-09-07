@@ -350,6 +350,23 @@ function runMigration($cliMode = false): void {
             INDEX (`status`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
+        // 19. Notifications Table
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `notifications` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `user_id` INT NOT NULL,
+            `type` VARCHAR(50) NOT NULL,
+            `title` VARCHAR(150) NOT NULL,
+            `message` TEXT NOT NULL,
+            `link` VARCHAR(255) NULL,
+            `icon` VARCHAR(50) DEFAULT 'fa-bell',
+            `icon_color` VARCHAR(30) DEFAULT '#93206c',
+            `is_read` TINYINT(1) DEFAULT 0,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX (`user_id`),
+            INDEX (`is_read`),
+            INDEX (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
         // Re-enable foreign key checks
         $pdo->exec("SET FOREIGN_KEY_CHECKS = 1;");
 

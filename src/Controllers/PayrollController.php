@@ -8,6 +8,7 @@ require_once __DIR__ . '/../Helpers.php';
 require_once __DIR__ . '/../Models/Payroll.php';
 require_once __DIR__ . '/../Models/Employee.php';
 require_once __DIR__ . '/../Models/Department.php';
+require_once __DIR__ . '/../Models/Notification.php';
 
 class PayrollController {
     public function index(): void {
@@ -42,6 +43,10 @@ class PayrollController {
             $year = (int)($_POST['year'] ?? date('Y'));
 
             $result = Payroll::processBatch($month, $year);
+            if ($result['processed'] > 0) {
+                $monthName = date('F', mktime(0, 0, 0, $month, 10));
+                Notification::sendToRole(['employee', 'manager', 'hr_admin'], 'payroll', 'Payslip Ready', "Your payslip for {$monthName} {$year} is now available.", 'payroll/my-payslips', 'fa-file-invoice-dollar', '#059669');
+            }
             flash('success', "Processed payroll for {$result['processed']} employees successfully!");
             if (!empty($result['errors'])) {
                 foreach ($result['errors'] as $err) {

@@ -7,6 +7,7 @@ require_once __DIR__ . '/../Auth.php';
 require_once __DIR__ . '/../Helpers.php';
 require_once __DIR__ . '/../Models/Leave.php';
 require_once __DIR__ . '/../Models/Employee.php';
+require_once __DIR__ . '/../Models/Notification.php';
 
 class LeaveController {
     public function myLeaves(): void {
@@ -48,6 +49,14 @@ class LeaveController {
             }
 
             $res = Leave::apply($empId, $leaveTypeId, $fromDate, $toDate, $reason, $isHalfDay, $halfDayType, $user['manager_id']);
+            if ($res['success']) {
+                if (!empty($user['manager_id'])) {
+                    $mgr = Employee::findById((int)$user['manager_id']);
+                    if ($mgr && !empty($mgr['user_id'])) {
+                        Notification::send((int)$mgr['user_id'], 'leave', 'New Leave Request', "{$user['name']} applied for leave ({$fromDate} to {$toDate})", 'leaves/approvals', 'fa-calendar-minus', '#e11d48');
+                    }
+                }
+            }
             flash($res['success'] ? 'success' : 'danger', $res['message']);
             redirect('leaves/my-leaves');
         }
@@ -75,7 +84,11 @@ class LeaveController {
             $remarks = trim($_POST['approver_remarks'] ?? '');
             $approverEmpId = Auth::employeeId();
 
+            $leaveReq = Database::fetchOne("SELECT lr.*, e.user_id, e.first_name FROM leave_requests lr JOIN employees e ON lr.employee_id = e.id WHERE lr.id = ?", [$reqId]);
             if (Leave::approve($reqId, $approverEmpId, $remarks)) {
+                if ($leaveReq && !empty($leaveReq['user_id'])) {
+                    Notification::send((int)$leaveReq['user_id'], 'leave', 'Leave Approved', "Your leave from {$leaveReq['from_date']} to {$leaveReq['to_date']} was approved.", 'leaves/my-leaves', 'fa-calendar-check', '#16a34a');
+                }
                 flash('success', 'Leave application approved successfully!');
             } else {
                 flash('danger', 'Could not approve leave application.');
@@ -91,7 +104,11 @@ class LeaveController {
             $remarks = trim($_POST['approver_remarks'] ?? '');
             $approverEmpId = Auth::employeeId();
 
+            $leaveReq = Database::fetchOne("SELECT lr.*, e.user_id, e.first_name FROM leave_requests lr JOIN employees e ON lr.employee_id = e.id WHERE lr.id = ?", [$reqId]);
             if (Leave::reject($reqId, $approverEmpId, $remarks)) {
+                if ($leaveReq && !empty($leaveReq['user_id'])) {
+                    Notification::send((int)$leaveReq['user_id'], 'leave', 'Leave Rejected', "Your leave from {$leaveReq['from_date']} to {$leaveReq['to_date']} was rejected." . ($remarks ? " Reason: {$remarks}" : ""), 'leaves/my-leaves', 'fa-calendar-xmark', '#dc2626');
+                }
                 flash('warning', 'Leave application has been rejected.');
             } else {
                 flash('danger', 'Could not reject leave application.');

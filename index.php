@@ -22,6 +22,7 @@ require_once __DIR__ . '/src/Controllers/ResignationController.php';
 require_once __DIR__ . '/src/Controllers/AnnouncementController.php';
 require_once __DIR__ . '/src/Controllers/DocumentController.php';
 require_once __DIR__ . '/src/Controllers/OrganizationController.php';
+require_once __DIR__ . '/src/Controllers/NotificationController.php';
 
 // Extract Route
 $route = $_GET['route'] ?? '';
@@ -191,6 +192,17 @@ switch ($route) {
         break;
     case 'documents/delete':
         (new DocumentController())->delete();
+        break;
+
+    // Notifications
+    case 'notifications/mark-read':
+        (new NotificationController())->markRead();
+        break;
+    case 'notifications/mark-all-read':
+        (new NotificationController())->markAllRead();
+        break;
+    case 'notifications/unread-count':
+        (new NotificationController())->unreadCount();
         break;
 
     default:

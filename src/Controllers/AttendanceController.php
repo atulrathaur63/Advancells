@@ -7,6 +7,8 @@ require_once __DIR__ . '/../Auth.php';
 require_once __DIR__ . '/../Helpers.php';
 require_once __DIR__ . '/../Models/Attendance.php';
 require_once __DIR__ . '/../Models/Department.php';
+require_once __DIR__ . '/../Models/Employee.php';
+require_once __DIR__ . '/../Models/Notification.php';
 
 class AttendanceController {
     public function punch(): void {
@@ -83,6 +85,12 @@ class AttendanceController {
             }
 
             Attendance::requestRegularization($empId, $date, $inTime, $outTime, $reason, $user['manager_id']);
+            if (!empty($user['manager_id'])) {
+                $mgr = Employee::findById((int)$user['manager_id']);
+                if ($mgr && !empty($mgr['user_id'])) {
+                    Notification::send((int)$mgr['user_id'], 'attendance', 'Regularization Request', "{$user['name']} requested attendance regularization for {$date}", 'attendance/regularize-approvals', 'fa-clock-rotate-left', '#0284c7');
+                }
+            }
             flash('success', 'Attendance regularization request submitted for manager approval!');
             redirect('attendance/my_attendance');
         }
@@ -107,7 +115,11 @@ class AttendanceController {
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && validate_csrf()) {
             $id = (int)($_POST['id'] ?? 0);
             $remarks = trim($_POST['admin_remarks'] ?? '');
+            $regReq = Database::fetchOne("SELECT r.*, e.user_id, e.first_name FROM attendance_regularizations r JOIN employees e ON r.employee_id = e.id WHERE r.id = ?", [$id]);
             if (Attendance::approveRegularization($id, $remarks)) {
+                if ($regReq && !empty($regReq['user_id'])) {
+                    Notification::send((int)$regReq['user_id'], 'attendance', 'Regularization Approved', "Your regularization request for {$regReq['date']} was approved.", 'attendance/my-attendance', 'fa-clock-rotate-left', '#16a34a');
+                }
                 flash('success', 'Attendance regularization approved successfully!');
             } else {
                 flash('danger', 'Could not approve regularization request.');
@@ -121,7 +133,11 @@ class AttendanceController {
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && validate_csrf()) {
             $id = (int)($_POST['id'] ?? 0);
             $remarks = trim($_POST['admin_remarks'] ?? '');
+            $regReq = Database::fetchOne("SELECT r.*, e.user_id, e.first_name FROM attendance_regularizations r JOIN employees e ON r.employee_id = e.id WHERE r.id = ?", [$id]);
             if (Attendance::rejectRegularization($id, $remarks)) {
+                if ($regReq && !empty($regReq['user_id'])) {
+                    Notification::send((int)$regReq['user_id'], 'attendance', 'Regularization Rejected', "Your regularization request for {$regReq['date']} was rejected.", 'attendance/my-attendance', 'fa-clock-rotate-left', '#dc2626');
+                }
                 flash('warning', 'Attendance regularization rejected.');
             } else {
                 flash('danger', 'Could not reject regularization request.');

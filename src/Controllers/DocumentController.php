@@ -8,6 +8,7 @@ require_once __DIR__ . '/../Helpers.php';
 require_once __DIR__ . '/../Models/Document.php';
 require_once __DIR__ . '/../Models/Employee.php';
 require_once __DIR__ . '/../Models/Department.php';
+require_once __DIR__ . '/../Models/Notification.php';
 
 class DocumentController {
     /**
@@ -127,6 +128,9 @@ class DocumentController {
         }
 
         Document::verify($id, Auth::id());
+        if (!empty($doc['user_id'])) {
+            Notification::send((int)$doc['user_id'], 'document', 'Document Verified', "Your document '{$doc['title']}' has been verified by HR.", 'documents/my-documents', 'fa-file-circle-check', '#16a34a');
+        }
         flash('success', "Document '{$doc['title']}' for {$doc['first_name']} {$doc['last_name']} marked as Verified!");
 
         $redirect = $_POST['redirect_to'] ?? url('documents');
@@ -158,6 +162,9 @@ class DocumentController {
         }
 
         Document::reject($id, $reason, Auth::id());
+        if (!empty($doc['user_id'])) {
+            Notification::send((int)$doc['user_id'], 'document', 'Document Action Required', "Your document '{$doc['title']}' was rejected: {$reason}", 'documents/my-documents', 'fa-file-circle-xmark', '#dc2626');
+        }
         flash('warning', "Document '{$doc['title']}' has been marked as Rejected.");
 
         $redirect = $_POST['redirect_to'] ?? url('documents');
