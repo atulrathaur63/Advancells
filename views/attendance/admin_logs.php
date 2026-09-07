@@ -3,6 +3,19 @@ $pageTitle = 'Company Attendance Logs';
 require_once BASE_PATH . '/views/layouts/header.php';
 ?>
 
+<!-- Attendance Navigation Switcher Tabs -->
+<div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 14px; align-items: center; flex-wrap: wrap;">
+    <a href="<?= url('attendance/admin-logs') ?>" class="btn btn-sm btn-primary" style="font-weight: 600;">
+        <i class="fa-solid fa-clipboard-list"></i> Daily Attendance Logs
+    </a>
+    <a href="<?= url('attendance/sheet') ?>" class="btn btn-sm btn-secondary" style="font-weight: 600;">
+        <i class="fa-solid fa-table-cells"></i> Monthly Attendance Sheet
+    </a>
+    <a href="<?= url('attendance/regularize-approvals') ?>" class="btn btn-sm btn-secondary" style="font-weight: 600; margin-left: auto;">
+        <i class="fa-solid fa-clock-rotate-left"></i> Regularizations
+    </a>
+</div>
+
 <!-- Today Overview Statistics -->
 <div class="stats-grid" style="margin-bottom: 20px;">
     <div class="stat-card">

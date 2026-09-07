@@ -286,4 +286,239 @@ class Attendance {
             'admin_remarks' => $adminRemarks
         ], "id = ?", [$reqId]) > 0;
     }
+
+    /**
+     * Get Complete Monthly Attendance Matrix for All Employees
+     */
+    public static function getCompanyMonthlyMatrix(int $month, int $year, ?int $departmentId = null): array {
+        $startDate = sprintf('%04d-%02d-01', $year, $month);
+        $totalDays = (int)date('t', strtotime($startDate));
+        $endDate = sprintf('%04d-%02d-%02d', $year, $month, $totalDays);
+        $today = date('Y-m-d');
+
+        // 1. Fetch Employees
+        $empSql = "SELECT e.id, e.emp_code, e.first_name, e.last_name, e.date_of_joining, e.department_id,
+                          d.name AS department_name, des.title AS designation_title, u.avatar
+                   FROM employees e
+                   LEFT JOIN users u ON e.user_id = u.id
+                   LEFT JOIN departments d ON e.department_id = d.id
+                   LEFT JOIN designations des ON e.designation_id = des.id
+                   WHERE e.status = 'active'";
+        $params = [];
+        if ($departmentId) {
+            $empSql .= " AND e.department_id = ?";
+            $params[] = $departmentId;
+        }
+        $empSql .= " ORDER BY d.name ASC, e.first_name ASC";
+        $employees = Database::fetchAll($empSql, $params);
+
+        // 2. Fetch Attendance records
+        $attSql = "SELECT * FROM attendance WHERE date BETWEEN ? AND ?";
+        $allAtt = Database::fetchAll($attSql, [$startDate, $endDate]);
+        $attMap = [];
+        foreach ($allAtt as $a) {
+            $attMap[$a['employee_id']][$a['date']] = $a;
+        }
+
+        // 3. Fetch Approved Leaves
+        $leavesSql = "SELECT lr.*, lt.name AS leave_name, lt.code AS leave_code
+                      FROM leave_requests lr
+                      JOIN leave_types lt ON lr.leave_type_id = lt.id
+                      WHERE lr.status = 'approved' AND NOT (lr.to_date < ? OR lr.from_date > ?)";
+        $allLeaves = Database::fetchAll($leavesSql, [$startDate, $endDate]);
+        $leaveMap = [];
+        foreach ($allLeaves as $l) {
+            $cur = max(strtotime($startDate), strtotime($l['from_date']));
+            $end = min(strtotime($endDate), strtotime($l['to_date']));
+            while ($cur <= $end) {
+                $dStr = date('Y-m-d', $cur);
+                $leaveMap[$l['employee_id']][$dStr] = $l;
+                $cur = strtotime('+1 day', $cur);
+            }
+        }
+
+        // 4. Fetch Gazetted Holidays
+        $holidays = Database::fetchAll("SELECT * FROM holidays WHERE holiday_date BETWEEN ? AND ?", [$startDate, $endDate]);
+        $holidayMap = [];
+        foreach ($holidays as $h) {
+            $holidayMap[$h['holiday_date']] = $h;
+        }
+
+        // 5. Build Days Metadata
+        $daysMeta = [];
+        $workingDaysCount = 0;
+        for ($d = 1; $d <= $totalDays; $d++) {
+            $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $d);
+            $dayOfWeek = (int)date('w', strtotime($dateStr)); // 0 = Sun, 6 = Sat
+            $isWeekend = ($dayOfWeek === 0 || $dayOfWeek === 6);
+            $isHoliday = isset($holidayMap[$dateStr]);
+            $isFuture = ($dateStr > $today);
+
+            if (!$isWeekend && !$isHoliday) {
+                $workingDaysCount++;
+            }
+
+            $daysMeta[$d] = [
+                'day' => $d,
+                'date' => $dateStr,
+                'day_char' => substr(date('D', strtotime($dateStr)), 0, 1),
+                'day_name' => date('D', strtotime($dateStr)),
+                'is_weekend' => $isWeekend,
+                'is_holiday' => $isHoliday,
+                'holiday_title' => $isHoliday ? $holidayMap[$dateStr]['title'] : null,
+                'is_today' => ($dateStr === $today),
+                'is_future' => $isFuture
+            ];
+        }
+
+        // 6. Build Employee Matrix
+        $matrixRows = [];
+        $companyTotalPresent = 0;
+        $companyTotalAbsent = 0;
+        $companyTotalLeave = 0;
+        $companyTotalHours = 0;
+
+        foreach ($employees as $emp) {
+            $empDays = [];
+            $presentDays = 0.0;
+            $halfDays = 0;
+            $leaveDays = 0;
+            $absentDays = 0;
+            $weekendDays = 0;
+            $holidayDays = 0;
+            $totalHoursWorked = 0.0;
+
+            for ($d = 1; $d <= $totalDays; $d++) {
+                $dateStr = $daysMeta[$d]['date'];
+                $isWeekend = $daysMeta[$d]['is_weekend'];
+                $isHoliday = $daysMeta[$d]['is_holiday'];
+                $isFuture = $daysMeta[$d]['is_future'];
+
+                $code = '-';
+                $badgeClass = 'empty';
+                $tooltip = '';
+                $punchData = null;
+
+                // If joined after this date
+                if (!empty($emp['date_of_joining']) && $dateStr < $emp['date_of_joining']) {
+                    $code = 'NJ';
+                    $badgeClass = 'badge-nj';
+                    $tooltip = 'Not yet joined';
+                } elseif (isset($attMap[$emp['id']][$dateStr])) {
+                    $att = $attMap[$emp['id']][$dateStr];
+                    $punchData = $att;
+                    $totalHoursWorked += (float)$att['total_hours'];
+
+                    if ($att['status'] === 'present' || $att['status'] === 'late') {
+                        $code = 'P';
+                        $badgeClass = ($att['status'] === 'late') ? 'badge-late' : 'badge-present';
+                        $presentDays += 1.0;
+                        $tooltip = ($att['status'] === 'late' ? 'Late Punch: ' : 'Present: ') . 
+                                   format_time($att['punch_in']) . ' - ' . 
+                                   ($att['punch_out'] ? format_time($att['punch_out']) : 'In Progress') . 
+                                   " ({$att['total_hours']}h)";
+                    } elseif ($att['status'] === 'half_day') {
+                        $code = 'HD';
+                        $badgeClass = 'badge-halfday';
+                        $halfDays++;
+                        $presentDays += 0.5;
+                        $tooltip = 'Half Day: ' . format_time($att['punch_in']) . ' - ' . 
+                                   ($att['punch_out'] ? format_time($att['punch_out']) : '') . 
+                                   " ({$att['total_hours']}h)";
+                    } elseif ($att['status'] === 'leave') {
+                        $code = 'L';
+                        $badgeClass = 'badge-leave';
+                        $leaveDays++;
+                        $tooltip = 'Approved Leave';
+                    } elseif ($att['status'] === 'absent') {
+                        $code = 'A';
+                        $badgeClass = 'badge-absent';
+                        $absentDays++;
+                        $tooltip = 'Marked Absent';
+                    }
+                } elseif (isset($leaveMap[$emp['id']][$dateStr])) {
+                    $leave = $leaveMap[$emp['id']][$dateStr];
+                    $code = 'L';
+                    $badgeClass = 'badge-leave';
+                    $leaveDays++;
+                    $tooltip = 'Leave: ' . ($leave['leave_name'] ?? 'Approved');
+                } elseif ($isHoliday) {
+                    $code = 'H';
+                    $badgeClass = 'badge-holiday';
+                    $holidayDays++;
+                    $tooltip = 'Holiday: ' . $daysMeta[$d]['holiday_title'];
+                } elseif ($isWeekend) {
+                    $code = 'W';
+                    $badgeClass = 'badge-weekend';
+                    $weekendDays++;
+                    $tooltip = 'Weekend (' . $daysMeta[$d]['day_name'] . ')';
+                } elseif (!$isFuture) {
+                    $code = 'A';
+                    $badgeClass = 'badge-absent';
+                    $absentDays++;
+                    $tooltip = 'Absent (No punch recorded)';
+                } else {
+                    $code = '-';
+                    $badgeClass = 'badge-future';
+                    $tooltip = 'Upcoming day';
+                }
+
+                $empDays[$d] = [
+                    'code' => $code,
+                    'badge' => $badgeClass,
+                    'tooltip' => $tooltip,
+                    'punch' => $punchData
+                ];
+            }
+
+            $payableDays = min($totalDays, round($presentDays + $leaveDays + $holidayDays + $weekendDays, 1));
+            $workingDaysCompleted = max(1, $workingDaysCount);
+            $effectivePresence = $presentDays + $leaveDays;
+            $attendanceRate = round(($effectivePresence / $workingDaysCompleted) * 100, 1);
+
+            $companyTotalPresent += $presentDays;
+            $companyTotalAbsent += $absentDays;
+            $companyTotalLeave += $leaveDays;
+            $companyTotalHours += $totalHoursWorked;
+
+            $matrixRows[] = [
+                'employee' => $emp,
+                'days' => $empDays,
+                'stats' => [
+                    'present' => $presentDays,
+                    'half_day' => $halfDays,
+                    'leave' => $leaveDays,
+                    'absent' => $absentDays,
+                    'weekend' => $weekendDays,
+                    'holiday' => $holidayDays,
+                    'payable_days' => $payableDays,
+                    'total_hours' => round($totalHoursWorked, 1),
+                    'attendance_rate' => min(100, $attendanceRate)
+                ]
+            ];
+        }
+
+        $empCount = max(1, count($employees));
+        $avgAttendanceRate = round(($companyTotalPresent / ($empCount * max(1, $workingDaysCount))) * 100, 1);
+
+        return [
+            'month' => $month,
+            'year' => $year,
+            'month_name' => date('F', strtotime($startDate)),
+            'total_days' => $totalDays,
+            'working_days' => $workingDaysCount,
+            'days_meta' => $daysMeta,
+            'matrix' => $matrixRows,
+            'summary' => [
+                'total_employees' => count($employees),
+                'working_days' => $workingDaysCount,
+                'total_present_days' => $companyTotalPresent,
+                'total_absent_days' => $companyTotalAbsent,
+                'total_leave_days' => $companyTotalLeave,
+                'total_hours_logged' => round($companyTotalHours, 1),
+                'company_avg_attendance' => min(100, $avgAttendanceRate)
+            ]
+        ];
+    }
 }
+

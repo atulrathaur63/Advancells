@@ -103,6 +103,10 @@ if (Auth::isHR()) {
             <span class="icon"><i class="fa-solid fa-clipboard-list"></i></span>
             <span>Master Logs</span>
         </a>
+        <a href="<?= url('attendance/sheet') ?>" class="nav-item <?= ($currentRoute === 'attendance/sheet' || $currentRoute === 'attendance/monthly-sheet') ? 'active' : '' ?>">
+            <span class="icon"><i class="fa-solid fa-table-cells"></i></span>
+            <span>Monthly Sheet</span>
+        </a>
         <?php endif; ?>
 
         <div class="nav-section-title">Leave & Holidays</div>

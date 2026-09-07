@@ -193,4 +193,94 @@ class AttendanceController {
         fclose($out);
         exit;
     }
+
+    public function sheet(): void {
+        Auth::requireRole(['super_admin', 'hr_admin', 'manager']);
+
+        $month = (int)($_GET['month'] ?? date('n'));
+        $year = (int)($_GET['year'] ?? date('Y'));
+        $departmentId = !empty($_GET['department_id']) ? (int)$_GET['department_id'] : null;
+
+        if ($month < 1 || $month > 12) {
+            $month = (int)date('n');
+        }
+        if ($year < 2020 || $year > 2035) {
+            $year = (int)date('Y');
+        }
+
+        $matrixData = Attendance::getCompanyMonthlyMatrix($month, $year, $departmentId);
+        $departments = Department::getAll();
+
+        if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+            $this->exportMatrixCsv($matrixData);
+            return;
+        }
+
+        require_once BASE_PATH . '/views/attendance/monthly_sheet.php';
+    }
+
+    public function exportMatrixCsv(array $matrixData): void {
+        $month = $matrixData['month'];
+        $year = $matrixData['year'];
+        $totalDays = $matrixData['total_days'];
+        $daysMeta = $matrixData['days_meta'];
+        $rows = $matrixData['matrix'];
+
+        $filename = sprintf('advancells_attendance_sheet_%04d_%02d_%s.csv', $year, $month, date('Ymd_His'));
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header("Content-Disposition: attachment; filename=\"{$filename}\"");
+
+        $out = fopen('php://output', 'w');
+
+        fputcsv($out, ["Advancells Monthly Attendance Sheet - {$matrixData['month_name']} {$year}"]);
+        fputcsv($out, [
+            "Total Workforce: {$matrixData['summary']['total_employees']}",
+            "Working Days: {$matrixData['summary']['working_days']}",
+            "Avg Attendance: {$matrixData['summary']['company_avg_attendance']}%"
+        ]);
+        fputcsv($out, []);
+
+        $header = ['Emp Code', 'Employee Name', 'Department', 'Designation'];
+        for ($d = 1; $d <= $totalDays; $d++) {
+            $meta = $daysMeta[$d];
+            $header[] = sprintf('%02d (%s)', $d, $meta['day_name']);
+        }
+        $header[] = 'Present (P)';
+        $header[] = 'Absent (A)';
+        $header[] = 'Half Day (HD)';
+        $header[] = 'Leaves (L)';
+        $header[] = 'Payable Days';
+        $header[] = 'Attendance %';
+
+        fputcsv($out, $header);
+
+        foreach ($rows as $r) {
+            $emp = $r['employee'];
+            $st = $r['stats'];
+            $row = [
+                $emp['emp_code'] ?? '',
+                trim(($emp['first_name'] ?? '') . ' ' . ($emp['last_name'] ?? '')),
+                $emp['department_name'] ?? 'General',
+                $emp['designation_title'] ?? 'N/A'
+            ];
+
+            for ($d = 1; $d <= $totalDays; $d++) {
+                $row[] = $r['days'][$d]['code'] ?? '-';
+            }
+
+            $row[] = $st['present'];
+            $row[] = $st['absent'];
+            $row[] = $st['half_day'];
+            $row[] = $st['leave'];
+            $row[] = $st['payable_days'];
+            $row[] = $st['attendance_rate'] . '%';
+
+            fputcsv($out, $row);
+        }
+
+        fclose($out);
+        exit;
+    }
 }
+

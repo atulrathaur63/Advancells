@@ -106,6 +106,10 @@ switch ($route) {
     case 'attendance/admin-logs':
         (new AttendanceController())->adminLogs();
         break;
+    case 'attendance/sheet':
+    case 'attendance/monthly-sheet':
+        (new AttendanceController())->sheet();
+        break;
 
     // Leaves
     case 'leaves/my-leaves':
