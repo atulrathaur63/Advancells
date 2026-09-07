@@ -129,11 +129,31 @@ class Attendance {
         return $summary;
     }
 
-    public static function getTodayCompanyStats(): array {
+    public static function getTodayCompanyStats(array $employeeIds = []): array {
         $today = date('Y-m-d');
-        $totalEmployees = (int)(Database::fetchOne("SELECT count(*) as count FROM employees WHERE status = 'active'")['count'] ?? 0);
-        
-        $stats = Database::fetchAll("SELECT status, count(*) as count FROM attendance WHERE date = ? GROUP BY status", [$today]);
+        $params = [];
+        $attParams = [$today];
+
+        $empSql = "SELECT count(*) as count FROM employees WHERE status = 'active'";
+        $attSql = "SELECT status, count(*) as count FROM attendance WHERE date = ?";
+
+        if (!empty($employeeIds)) {
+            $empList = array_values(array_filter(array_map('intval', $employeeIds)));
+            if (!empty($empList)) {
+                $placeholders = implode(',', array_fill(0, count($empList), '?'));
+                $empSql .= " AND id IN ({$placeholders})";
+                $attSql .= " AND employee_id IN ({$placeholders})";
+                $params = $empList;
+                $attParams = array_merge($attParams, $empList);
+            } else {
+                $empSql .= " AND 1=0";
+                $attSql .= " AND 1=0";
+            }
+        }
+        $attSql .= " GROUP BY status";
+
+        $totalEmployees = (int)(Database::fetchOne($empSql, $params)['count'] ?? 0);
+        $stats = Database::fetchAll($attSql, $attParams);
         $map = [
             'present' => 0,
             'late' => 0,
@@ -183,6 +203,17 @@ class Attendance {
             $params[] = $filters['department_id'];
         }
 
+        if (isset($filters['employee_ids'])) {
+            $empIds = array_values(array_filter(array_map('intval', (array)$filters['employee_ids'])));
+            if (!empty($empIds)) {
+                $placeholders = implode(',', array_fill(0, count($empIds), '?'));
+                $sql .= " AND a.employee_id IN ({$placeholders})";
+                $params = array_merge($params, $empIds);
+            } else {
+                $sql .= " AND 1=0";
+            }
+        }
+
         if (!empty($filters['status'])) {
             $sql .= " AND a.status = ?";
             $params[] = $filters['status'];
@@ -205,7 +236,7 @@ class Attendance {
         ]);
     }
 
-    public static function getRegularizationRequests(?int $managerId = null, ?int $employeeId = null): array {
+    public static function getRegularizationRequests(?int $managerId = null, ?int $employeeId = null, array $employeeIds = []): array {
         $sql = "SELECT ar.*, e.emp_code, CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
                        d.name AS department_name
                 FROM attendance_regularizations ar
@@ -217,6 +248,26 @@ class Attendance {
         if ($employeeId !== null) {
             $sql .= " AND ar.employee_id = ?";
             $params[] = $employeeId;
+        } elseif (!empty($employeeIds)) {
+            $subIds = array_values(array_filter(array_map('intval', $employeeIds)));
+            if (!empty($subIds)) {
+                $placeholders = implode(',', array_fill(0, count($subIds), '?'));
+                if ($managerId !== null) {
+                    $sql .= " AND (ar.employee_id IN ({$placeholders}) OR ar.manager_id = ? OR e.manager_id = ?)";
+                    $params = array_merge($params, $subIds, [$managerId, $managerId]);
+                } else {
+                    $sql .= " AND ar.employee_id IN ({$placeholders})";
+                    $params = array_merge($params, $subIds);
+                }
+            } else {
+                if ($managerId !== null) {
+                    $sql .= " AND (ar.manager_id = ? OR e.manager_id = ?)";
+                    $params[] = $managerId;
+                    $params[] = $managerId;
+                } else {
+                    $sql .= " AND 1=0";
+                }
+            }
         } elseif ($managerId !== null) {
             $sql .= " AND (ar.manager_id = ? OR e.manager_id = ?)";
             $params[] = $managerId;
@@ -290,7 +341,7 @@ class Attendance {
     /**
      * Get Complete Monthly Attendance Matrix for All Employees
      */
-    public static function getCompanyMonthlyMatrix(int $month, int $year, ?int $departmentId = null): array {
+    public static function getCompanyMonthlyMatrix(int $month, int $year, ?int $departmentId = null, array $employeeIds = []): array {
         $startDate = sprintf('%04d-%02d-01', $year, $month);
         $totalDays = (int)date('t', strtotime($startDate));
         $endDate = sprintf('%04d-%02d-%02d', $year, $month, $totalDays);
@@ -308,6 +359,16 @@ class Attendance {
         if ($departmentId) {
             $empSql .= " AND e.department_id = ?";
             $params[] = $departmentId;
+        }
+        if (!empty($employeeIds)) {
+            $empList = array_values(array_filter(array_map('intval', $employeeIds)));
+            if (!empty($empList)) {
+                $placeholders = implode(',', array_fill(0, count($empList), '?'));
+                $empSql .= " AND e.id IN ({$placeholders})";
+                $params = array_merge($params, $empList);
+            } else {
+                $empSql .= " AND 1=0";
+            }
         }
         $empSql .= " ORDER BY d.name ASC, e.first_name ASC";
         $employees = Database::fetchAll($empSql, $params);

@@ -354,6 +354,7 @@ $monthNames = [
                 </select>
             </div>
 
+            <?php if (!empty($departments)): ?>
             <div style="min-width: 200px;">
                 <label class="form-label" style="margin-bottom: 6px; font-size: 11px; font-weight: 700; color: #475569;">DEPARTMENT</label>
                 <select name="department_id" class="form-control">
@@ -365,6 +366,7 @@ $monthNames = [
                     <?php endforeach; ?>
                 </select>
             </div>
+            <?php endif; ?>
 
             <div style="display: flex; gap: 8px;">
                 <button type="submit" class="btn btn-primary" style="font-weight: 600;">

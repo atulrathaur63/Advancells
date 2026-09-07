@@ -19,12 +19,16 @@ class AnnouncementController {
 
             $action = $_POST['action'] ?? '';
             if ($action === 'create') {
-                Announcement::create($_POST, Auth::id());
+                $allowedRoles = ['all', 'manager', 'employee'];
+                $targetRole = in_array($_POST['target_role'] ?? '', $allowedRoles, true) ? $_POST['target_role'] : 'all';
+                $postData = $_POST;
+                $postData['target_role'] = $targetRole;
+
+                Announcement::create($postData, Auth::id());
                 $annTitle = trim($_POST['title'] ?? 'Company Announcement');
-                $targetRole = $_POST['target_role'] ?? 'all';
                 $roles = ($targetRole === 'all') ? ['super_admin', 'hr_admin', 'manager', 'employee'] : [$targetRole];
                 Notification::sendToRole($roles, 'announcement', 'New Announcement', $annTitle, 'announcements', 'fa-bullhorn', '#93206c');
-                flash('success', 'Announcement published company-wide!');
+                flash('success', 'Announcement published successfully!');
             } elseif ($action === 'delete') {
                 $id = (int)$_POST['id'];
                 Announcement::delete($id);
@@ -33,7 +37,7 @@ class AnnouncementController {
             redirect('announcements');
         }
 
-        $announcements = Announcement::getActive();
+        $announcements = Announcement::getActive(Auth::role());
         require_once BASE_PATH . '/views/announcements/index.php';
     }
 }

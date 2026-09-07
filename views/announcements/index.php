@@ -22,6 +22,13 @@ require_once BASE_PATH . '/views/layouts/header.php';
                                 <?= e($ann['title']) ?>
                             </h3>
                             <div style="display: flex; align-items: center; gap: 8px;">
+                                <?php if (($ann['target_role'] ?? 'all') === 'manager'): ?>
+                                    <span class="badge" style="background: #e0e7ff; color: #3730a3; font-size: 11px;"><i class="fa-solid fa-user-tie"></i> Managers</span>
+                                <?php elseif (($ann['target_role'] ?? 'all') === 'employee'): ?>
+                                    <span class="badge" style="background: #fef3c7; color: #92400e; font-size: 11px;"><i class="fa-solid fa-users"></i> Staff</span>
+                                <?php else: ?>
+                                    <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 11px;"><i class="fa-solid fa-globe"></i> Everyone</span>
+                                <?php endif; ?>
                                 <?= status_badge($ann['priority']) ?>
                                 <?php if (Auth::isHR()): ?>
                                     <form action="<?= url('announcements') ?>" method="POST" style="display: inline;">
@@ -74,6 +81,14 @@ require_once BASE_PATH . '/views/layouts/header.php';
                             <option value="high">High Priority</option>
                             <option value="urgent">Urgent Alert</option>
                             <option value="low">Informational / Low</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="target_role">Target Audience</label>
+                        <select name="target_role" id="target_role" class="form-control">
+                            <option value="all" selected>All Staff (Company-wide)</option>
+                            <option value="manager">Managers Only</option>
+                            <option value="employee">Staff / Employees Only</option>
                         </select>
                     </div>
                     <div class="form-group">

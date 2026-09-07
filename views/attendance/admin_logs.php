@@ -69,6 +69,7 @@ require_once BASE_PATH . '/views/layouts/header.php';
                 <input type="date" name="date" class="form-control" value="<?= e($filters['date']) ?>">
             </div>
 
+            <?php if (!empty($departments)): ?>
             <div style="width: 200px;">
                 <label class="form-label" style="margin-bottom: 4px; font-size: 11px;">Department</label>
                 <select name="department_id" class="form-control">
@@ -80,6 +81,7 @@ require_once BASE_PATH . '/views/layouts/header.php';
                     <?php endforeach; ?>
                 </select>
             </div>
+            <?php endif; ?>
 
             <div style="width: 160px;">
                 <label class="form-label" style="margin-bottom: 4px; font-size: 11px;">Status</label>

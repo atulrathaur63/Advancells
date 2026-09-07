@@ -95,8 +95,8 @@ class PayrollController {
         }
 
         // Authorization: HR/Admin or the owner of the payslip
-        $currentUser = Auth::user();
-        if (!Auth::isHR() && $currentUser['employee_id'] !== $payslip['employee_id']) {
+        $empId = Auth::employeeId();
+        if (!Auth::isHR() && ((int)$empId !== (int)$payslip['employee_id'])) {
             flash('danger', 'Unauthorized access to this payslip!');
             redirect('dashboard');
         }

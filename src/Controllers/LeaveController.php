@@ -72,7 +72,13 @@ class LeaveController {
         $managerId = ($role === 'manager') ? $empId : null;
         $status = $_GET['status'] ?? 'pending';
 
-        $requests = Leave::getRequests($managerId, null, ['status' => $status]);
+        $filters = ['status' => $status];
+        if ($role === 'manager') {
+            $subordinateIds = Employee::getSubordinateIds((int)$empId, false);
+            $filters['employee_ids'] = $subordinateIds;
+        }
+
+        $requests = Leave::getRequests($managerId, null, $filters);
 
         require_once BASE_PATH . '/views/leaves/approvals.php';
     }
@@ -82,9 +88,21 @@ class LeaveController {
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && validate_csrf()) {
             $reqId = (int)($_POST['request_id'] ?? 0);
             $remarks = trim($_POST['approver_remarks'] ?? '');
-            $approverEmpId = Auth::employeeId();
+            $approverEmpId = (int)Auth::employeeId();
 
             $leaveReq = Database::fetchOne("SELECT lr.*, e.user_id, e.first_name FROM leave_requests lr JOIN employees e ON lr.employee_id = e.id WHERE lr.id = ?", [$reqId]);
+            if (!$leaveReq) {
+                flash('danger', 'Leave request record not found.');
+                redirect('leaves/approvals');
+            }
+
+            if (Auth::role() === 'manager') {
+                if ((int)$leaveReq['manager_id'] !== $approverEmpId && !Employee::isSubordinateOf((int)$leaveReq['employee_id'], $approverEmpId)) {
+                    flash('danger', 'Unauthorized! You can only approve leave requests for your own team members.');
+                    redirect('leaves/approvals');
+                }
+            }
+
             if (Leave::approve($reqId, $approverEmpId, $remarks)) {
                 if ($leaveReq && !empty($leaveReq['user_id'])) {
                     Notification::send((int)$leaveReq['user_id'], 'leave', 'Leave Approved', "Your leave from {$leaveReq['from_date']} to {$leaveReq['to_date']} was approved.", 'leaves/my-leaves', 'fa-calendar-check', '#16a34a');
@@ -102,9 +120,21 @@ class LeaveController {
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && validate_csrf()) {
             $reqId = (int)($_POST['request_id'] ?? 0);
             $remarks = trim($_POST['approver_remarks'] ?? '');
-            $approverEmpId = Auth::employeeId();
+            $approverEmpId = (int)Auth::employeeId();
 
             $leaveReq = Database::fetchOne("SELECT lr.*, e.user_id, e.first_name FROM leave_requests lr JOIN employees e ON lr.employee_id = e.id WHERE lr.id = ?", [$reqId]);
+            if (!$leaveReq) {
+                flash('danger', 'Leave request record not found.');
+                redirect('leaves/approvals');
+            }
+
+            if (Auth::role() === 'manager') {
+                if ((int)$leaveReq['manager_id'] !== $approverEmpId && !Employee::isSubordinateOf((int)$leaveReq['employee_id'], $approverEmpId)) {
+                    flash('danger', 'Unauthorized! You can only reject leave requests for your own team members.');
+                    redirect('leaves/approvals');
+                }
+            }
+
             if (Leave::reject($reqId, $approverEmpId, $remarks)) {
                 if ($leaveReq && !empty($leaveReq['user_id'])) {
                     Notification::send((int)$leaveReq['user_id'], 'leave', 'Leave Rejected', "Your leave from {$leaveReq['from_date']} to {$leaveReq['to_date']} was rejected." . ($remarks ? " Reason: {$remarks}" : ""), 'leaves/my-leaves', 'fa-calendar-xmark', '#dc2626');

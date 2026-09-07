@@ -62,28 +62,119 @@ class Payroll {
             return ['success' => false, 'message' => 'Employee has no salary structure configured!'];
         }
 
+        // Employee details for joining/exit dates
+        $emp = Database::fetchOne("SELECT id, date_of_joining, date_of_exit FROM employees WHERE id = ?", [$employeeId]);
+
         // Days in month
         $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
         $startDate = sprintf('%04d-%02d-01', $year, $month);
         $endDate = sprintf('%04d-%02d-%02d', $year, $month, $daysInMonth);
+        $today = date('Y-m-d');
 
-        // Fetch attendance for the month
+        // Fetch attendance punches for the month
         $attLogs = Database::fetchAll("SELECT * FROM attendance WHERE employee_id = ? AND date BETWEEN ? AND ?", [$employeeId, $startDate, $endDate]);
-        
-        $presentDays = 0.0;
-        $lopDays = 0.0;
+        $attMap = [];
         foreach ($attLogs as $a) {
-            if ($a['status'] === 'present' || $a['status'] === 'late') {
-                $presentDays += 1.0;
-            } elseif ($a['status'] === 'half_day') {
-                $presentDays += 0.5;
-                $lopDays += 0.5;
-            } elseif ($a['status'] === 'leave') {
-                $presentDays += 1.0; // Approved leaves are counted as paid
-            } elseif ($a['status'] === 'absent') {
-                $lopDays += 1.0;
+            $attMap[$a['date']] = $a;
+        }
+
+        // Fetch approved leaves with paid status
+        $leaves = Database::fetchAll("SELECT lr.*, lt.is_paid 
+                                      FROM leave_requests lr 
+                                      JOIN leave_types lt ON lr.leave_type_id = lt.id 
+                                      WHERE lr.employee_id = ? AND lr.status = 'approved' 
+                                      AND NOT (lr.to_date < ? OR lr.from_date > ?)", [$employeeId, $startDate, $endDate]);
+        $leaveMap = [];
+        foreach ($leaves as $l) {
+            $cur = max(strtotime($startDate), strtotime($l['from_date']));
+            $end = min(strtotime($endDate), strtotime($l['to_date']));
+            while ($cur <= $end) {
+                $leaveMap[date('Y-m-d', $cur)] = $l;
+                $cur = strtotime('+1 day', $cur);
             }
         }
+
+        // Fetch gazetted holidays
+        $holidays = Database::fetchAll("SELECT holiday_date, title FROM holidays WHERE holiday_date BETWEEN ? AND ?", [$startDate, $endDate]);
+        $holidayMap = [];
+        foreach ($holidays as $h) {
+            $holidayMap[$h['holiday_date']] = $h;
+        }
+
+        $presentDays = 0.0;
+        $lopDays = 0.0;
+        $paidLeaveDays = 0.0;
+        $holidayDays = 0.0;
+        $weekendDays = 0.0;
+
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $d);
+            $dayOfWeek = (int)date('w', strtotime($dateStr)); // 0 = Sun, 6 = Sat
+            $isWeekend = ($dayOfWeek === 0 || $dayOfWeek === 6);
+            $isHoliday = isset($holidayMap[$dateStr]);
+            $isFuture = ($dateStr > $today);
+
+            // 1. Check if date falls outside employment tenure (Not joined or already exited)
+            if (($emp && !empty($emp['date_of_joining']) && $dateStr < $emp['date_of_joining']) ||
+                ($emp && !empty($emp['date_of_exit']) && $dateStr > $emp['date_of_exit'])) {
+                $lopDays += 1.0;
+                continue;
+            }
+
+            // 2. Attendance punched for this date
+            if (isset($attMap[$dateStr])) {
+                $att = $attMap[$dateStr];
+                if ($att['status'] === 'present' || $att['status'] === 'late') {
+                    $presentDays += 1.0;
+                } elseif ($att['status'] === 'half_day') {
+                    $presentDays += 0.5;
+                    $lopDays += 0.5;
+                } elseif ($att['status'] === 'leave') {
+                    if (isset($leaveMap[$dateStr]) && empty($leaveMap[$dateStr]['is_paid'])) {
+                        $lopDays += 1.0;
+                    } else {
+                        $paidLeaveDays += 1.0;
+                    }
+                } elseif ($att['status'] === 'absent') {
+                    $lopDays += 1.0;
+                }
+                continue;
+            }
+
+            // 3. Approved leave from leave_requests without separate attendance punch
+            if (isset($leaveMap[$dateStr])) {
+                if (empty($leaveMap[$dateStr]['is_paid'])) {
+                    $lopDays += 1.0;
+                } else {
+                    $paidLeaveDays += 1.0;
+                }
+                continue;
+            }
+
+            // 4. Gazetted company holiday (paid)
+            if ($isHoliday) {
+                $holidayDays += 1.0;
+                continue;
+            }
+
+            // 5. Weekend (paid)
+            if ($isWeekend) {
+                $weekendDays += 1.0;
+                continue;
+            }
+
+            // 6. Working day with no punch and no approved leave
+            if (!$isFuture || $endDate <= $today) {
+                // Past or closed working day without punch is Absent (Loss of Pay)
+                $lopDays += 1.0;
+            } else {
+                // Future working day within ongoing month cycle
+                $presentDays += 1.0;
+            }
+        }
+
+        // Present & Paid Days = total days in month - LOP days
+        $paidDays = round(max(0, $daysInMonth - $lopDays), 1);
 
         // Calculate LOP deduction if any
         $dailyRate = $structure['gross_salary'] / max(1, $daysInMonth);
@@ -119,7 +210,7 @@ class Payroll {
             'total_deductions' => $totalDeductions,
             'net_salary' => $netSalary,
             'working_days' => $daysInMonth,
-            'present_days' => $presentDays,
+            'present_days' => $paidDays,
             'lop_days' => $lopDays,
             'payment_status' => 'generated',
             'payslip_number' => $payslipNumber

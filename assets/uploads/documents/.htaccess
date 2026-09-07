@@ -1,5 +1,21 @@
-# Prevent PHP execution in uploads directory for security
+# Advancells HRMS - Confidential Document Storage Protection
+# Prevent execution of any scripts
 <FilesMatch "\.(php|phtml|php3|php4|php5|phps|pl|py|cgi|sh)$">
-    Deny from all
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Deny from all
+    </IfModule>
 </FilesMatch>
+
+# Block all direct HTTP access/downloads.
+# Files can only be accessed securely through DocumentController::download after authorization
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Deny from all
+</IfModule>
+
 Options -Indexes

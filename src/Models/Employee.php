@@ -28,6 +28,17 @@ class Employee {
             $params[] = $filters['status'];
         }
 
+        if (isset($filters['employee_ids'])) {
+            $empIds = array_values(array_filter(array_map('intval', (array)$filters['employee_ids'])));
+            if (!empty($empIds)) {
+                $placeholders = implode(',', array_fill(0, count($empIds), '?'));
+                $sql .= " AND e.id IN ({$placeholders})";
+                $params = array_merge($params, $empIds);
+            } else {
+                $sql .= " AND 1=0";
+            }
+        }
+
         if (!empty($filters['search'])) {
             $search = '%' . $filters['search'] . '%';
             $sql .= " AND (e.emp_code LIKE ? OR e.first_name LIKE ? OR e.last_name LIKE ? OR e.email LIKE ? OR e.phone LIKE ?)";
@@ -361,5 +372,62 @@ class Employee {
             'departments_count' => $departments,
             'top_executives'    => $topExecs
         ];
+    }
+
+    /**
+     * Check if a given employee reports (directly or indirectly) to a manager
+     */
+    public static function isSubordinateOf(int $employeeId, int $managerId): bool {
+        if ($employeeId <= 0 || $managerId <= 0) {
+            return false;
+        }
+
+        if ($employeeId === $managerId) {
+            return true;
+        }
+
+        $visited = [];
+        $curr = $employeeId;
+        while ($curr !== null) {
+            if (in_array($curr, $visited, true)) {
+                break; // prevent circular reporting infinite loop
+            }
+            $visited[] = $curr;
+            $parent = Database::fetchOne("SELECT manager_id FROM employees WHERE id = ?", [$curr]);
+            if (!$parent || empty($parent['manager_id'])) {
+                break;
+            }
+            if ((int)$parent['manager_id'] === $managerId) {
+                return true;
+            }
+            $curr = (int)$parent['manager_id'];
+        }
+
+        return false;
+    }
+
+    /**
+     * Get all subordinate employee IDs for a manager (direct and indirect)
+     */
+    public static function getSubordinateIds(int $managerId, bool $includeSelf = true): array {
+        if ($managerId <= 0) return [];
+        $ids = $includeSelf ? [$managerId] : [];
+        $queue = [$managerId];
+        $visited = [$managerId];
+
+        while (!empty($queue)) {
+            $currentId = array_shift($queue);
+            $reports = Database::fetchAll("SELECT id FROM employees WHERE manager_id = ?", [$currentId]);
+            foreach ($reports as $r) {
+                $rId = (int)$r['id'];
+                if (!in_array($rId, $visited, true)) {
+                    $visited[] = $rId;
+                    $ids[] = $rId;
+                    $queue[] = $rId;
+                }
+            }
+        }
+
+        return $ids;
     }
 }

@@ -41,23 +41,29 @@ require_once BASE_PATH . '/views/layouts/header.php';
                                 <td><?= status_badge($r['status']) ?></td>
                                 <td>
                                     <?php if ($r['status'] !== 'completed' && $r['status'] !== 'rejected'): ?>
-                                        <form action="<?= url('resignations/update') ?>" method="POST" style="display: flex; gap: 4px; align-items: center;">
-                                            <?= csrf_field() ?>
-                                            <input type="hidden" name="id" value="<?= $r['id'] ?>">
+                                        <?php if (!Auth::isHR() && in_array($r['status'], ['manager_approved', 'hr_approved'], true)): ?>
+                                            <small style="color: var(--text-muted);"><i class="fa-solid fa-clock"></i> Awaiting HR</small>
+                                        <?php else: ?>
+                                            <form action="<?= url('resignations/update') ?>" method="POST" style="display: flex; gap: 4px; align-items: center;">
+                                                <?= csrf_field() ?>
+                                                <input type="hidden" name="id" value="<?= $r['id'] ?>">
 
-                                            <select name="status" class="form-control" style="padding: 4px 8px; font-size: 12px; width: 130px;">
-                                                <option value="manager_approved" <?= ($r['status'] === 'manager_approved') ? 'selected' : '' ?>>Manager OK</option>
-                                                <option value="hr_approved" <?= ($r['status'] === 'hr_approved') ? 'selected' : '' ?>>HR Clearance</option>
-                                                <option value="completed" <?= ($r['status'] === 'completed') ? 'selected' : '' ?>>Settled/Exited</option>
-                                                <option value="rejected" <?= ($r['status'] === 'rejected') ? 'selected' : '' ?>>Reject</option>
-                                            </select>
+                                                <select name="status" class="form-control" style="padding: 4px 8px; font-size: 12px; width: 130px;">
+                                                    <option value="manager_approved" <?= ($r['status'] === 'manager_approved') ? 'selected' : '' ?>>Manager OK</option>
+                                                    <?php if (Auth::isHR()): ?>
+                                                        <option value="hr_approved" <?= ($r['status'] === 'hr_approved') ? 'selected' : '' ?>>HR Clearance</option>
+                                                        <option value="completed" <?= ($r['status'] === 'completed') ? 'selected' : '' ?>>Settled/Exited</option>
+                                                    <?php endif; ?>
+                                                    <option value="rejected" <?= ($r['status'] === 'rejected') ? 'selected' : '' ?>>Reject</option>
+                                                </select>
 
-                                            <input type="hidden" name="approved_last_working_day" value="<?= $r['desired_last_working_day'] ?>">
+                                                <input type="hidden" name="approved_last_working_day" value="<?= $r['desired_last_working_day'] ?>">
 
-                                            <button type="submit" class="btn btn-sm btn-primary" onclick="return confirmAction('Update status for this exit request?')">
-                                                Update
-                                            </button>
-                                        </form>
+                                                <button type="submit" class="btn btn-sm btn-primary" onclick="return confirmAction('Update status for this exit request?')">
+                                                    Update
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
                                     <?php else: ?>
                                         <small style="color: var(--text-muted);">Process Closed</small>
                                     <?php endif; ?>

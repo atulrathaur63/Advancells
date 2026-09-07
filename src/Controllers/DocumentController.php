@@ -128,8 +128,9 @@ class DocumentController {
         }
 
         Document::verify($id, Auth::id());
-        if (!empty($doc['user_id'])) {
-            Notification::send((int)$doc['user_id'], 'document', 'Document Verified', "Your document '{$doc['title']}' has been verified by HR.", 'documents/my-documents', 'fa-file-circle-check', '#16a34a');
+        $docUserId = (int)($doc['emp_user_id'] ?? $doc['user_id'] ?? 0);
+        if ($docUserId > 0) {
+            Notification::send($docUserId, 'document', 'Document Verified', "Your document '{$doc['title']}' has been verified by HR.", 'documents/my-documents', 'fa-file-circle-check', '#16a34a');
         }
         flash('success', "Document '{$doc['title']}' for {$doc['first_name']} {$doc['last_name']} marked as Verified!");
 
@@ -162,8 +163,9 @@ class DocumentController {
         }
 
         Document::reject($id, $reason, Auth::id());
-        if (!empty($doc['user_id'])) {
-            Notification::send((int)$doc['user_id'], 'document', 'Document Action Required', "Your document '{$doc['title']}' was rejected: {$reason}", 'documents/my-documents', 'fa-file-circle-xmark', '#dc2626');
+        $docUserId = (int)($doc['emp_user_id'] ?? $doc['user_id'] ?? 0);
+        if ($docUserId > 0) {
+            Notification::send($docUserId, 'document', 'Document Action Required', "Your document '{$doc['title']}' was rejected: {$reason}", 'documents/my-documents', 'fa-file-circle-xmark', '#dc2626');
         }
         flash('warning', "Document '{$doc['title']}' has been marked as Rejected.");
 
@@ -188,11 +190,19 @@ class DocumentController {
 
         // Authorization check: Super Admin, HR, Manager or document owner
         $currentRole = Auth::role();
-        $currentEmpId = Auth::employeeId();
+        $currentEmpId = (int)Auth::employeeId();
+        $docOwnerEmpId = (int)$doc['employee_id'];
 
-        if ($currentRole === 'employee' && $doc['employee_id'] !== $currentEmpId) {
+        if ($currentRole === 'employee' && $docOwnerEmpId !== $currentEmpId) {
             http_response_code(403);
             die("Access Denied: You do not have permission to access this document.");
+        }
+
+        if ($currentRole === 'manager') {
+            if ($docOwnerEmpId !== $currentEmpId && !Employee::isSubordinateOf($docOwnerEmpId, $currentEmpId)) {
+                http_response_code(403);
+                die("Access Denied: You can only access documents of your direct or indirect team reportees.");
+            }
         }
 
         $fullPath = BASE_PATH . '/' . $doc['file_path'];

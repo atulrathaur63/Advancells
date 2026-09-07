@@ -50,6 +50,9 @@ class Auth {
     public static function attempt(string $email, string $password): bool {
         $user = Database::fetchOne("SELECT * FROM users WHERE email = ? AND status = 'active'", [$email]);
         if ($user && password_verify($password, $user['password'])) {
+            if (!headers_sent()) {
+                session_regenerate_id(true);
+            }
             $_SESSION['user_id'] = (int)$user['id'];
             $_SESSION['user_name'] = $user['name'];
             $_SESSION['user_email'] = $user['email'];
@@ -67,7 +70,7 @@ class Auth {
             Database::logActivity(self::id(), 'LOGOUT', 'AUTH', 'User logged out');
         }
         $_SESSION = [];
-        if (ini_get("session.use_cookies")) {
+        if (ini_get("session.use_cookies") && !headers_sent()) {
             $params = session_get_cookie_params();
             setcookie(session_name(), '', time() - 42000,
                 $params["path"], $params["domain"],

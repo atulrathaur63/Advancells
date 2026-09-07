@@ -1,0 +1,6 @@
+# Scratch scripts & temporary tests
+scratch/
+
+# OS generated files
+Thumbs.db
+.DS_Store

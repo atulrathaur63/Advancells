@@ -275,11 +275,13 @@ require_once BASE_PATH . '/views/layouts/header.php';
                         <div style="width: <?= $compliance['percentage'] ?>%; height: 100%; background: linear-gradient(90deg, #93206c, #10b981); border-radius: 6px; transition: width 0.5s ease;"></div>
                     </div>
                 </div>
+                <?php if (Auth::isHR() || (int)$employee['id'] === (int)Auth::employeeId()): ?>
                 <div>
                     <button class="btn btn-primary" onclick="document.getElementById('uploadEmpDocModal').style.display='flex'">
                         <i class="fa-solid fa-cloud-arrow-up"></i> Upload Document
                     </button>
                 </div>
+                <?php endif; ?>
             </div>
 
             <!-- Documents Table -->
@@ -288,9 +290,11 @@ require_once BASE_PATH . '/views/layouts/header.php';
                     <i class="fa-solid fa-folder-open" style="font-size: 40px; color: #94a3b8; margin-bottom: 12px; display: block;"></i>
                     <h4 style="color: #475569; font-weight: 600;">No Documents Uploaded Yet</h4>
                     <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">This employee has not uploaded any identity, educational, or statutory documents.</p>
+                    <?php if (Auth::isHR() || (int)$employee['id'] === (int)Auth::employeeId()): ?>
                     <button class="btn btn-primary btn-sm" onclick="document.getElementById('uploadEmpDocModal').style.display='flex'">
                         <i class="fa-solid fa-plus"></i> Upload First Document
                     </button>
+                    <?php endif; ?>
                 </div>
             <?php else: ?>
                 <div class="table-responsive">
@@ -372,7 +376,7 @@ require_once BASE_PATH . '/views/layouts/header.php';
                                         <a href="<?= url('documents/download?id=' . $doc['id']) ?>" class="btn btn-outline btn-sm" title="Download Document" target="_blank">
                                             <i class="fa-solid fa-download"></i>
                                         </a>
-                                        <?php if (Auth::isHR() || Auth::isManager()): ?>
+                                        <?php if (Auth::isHR()): ?>
                                             <?php if ($doc['status'] !== 'verified'): ?>
                                                 <form action="<?= url('documents/verify') ?>" method="POST" style="display: inline-block;">
                                                     <?= csrf_field() ?>

@@ -9,20 +9,22 @@ require_once __DIR__ . '/src/Database.php';
 require_once __DIR__ . '/src/Helpers.php';
 require_once __DIR__ . '/src/Auth.php';
 
-// Controllers
-require_once __DIR__ . '/src/Controllers/AuthController.php';
-require_once __DIR__ . '/src/Controllers/DashboardController.php';
-require_once __DIR__ . '/src/Controllers/EmployeeController.php';
-require_once __DIR__ . '/src/Controllers/DepartmentController.php';
-require_once __DIR__ . '/src/Controllers/AttendanceController.php';
-require_once __DIR__ . '/src/Controllers/LeaveController.php';
-require_once __DIR__ . '/src/Controllers/PayrollController.php';
-require_once __DIR__ . '/src/Controllers/PerformanceController.php';
-require_once __DIR__ . '/src/Controllers/ResignationController.php';
-require_once __DIR__ . '/src/Controllers/AnnouncementController.php';
-require_once __DIR__ . '/src/Controllers/DocumentController.php';
-require_once __DIR__ . '/src/Controllers/OrganizationController.php';
-require_once __DIR__ . '/src/Controllers/NotificationController.php';
+// SPL Autoloader for Controllers, Models, and Core Services
+spl_autoload_register(function (string $class): void {
+    $class = ltrim($class, '\\');
+    $paths = [
+        __DIR__ . '/src/Controllers/' . $class . '.php',
+        __DIR__ . '/src/Models/' . $class . '.php',
+        __DIR__ . '/src/' . $class . '.php',
+    ];
+
+    foreach ($paths as $file) {
+        if (file_exists($file)) {
+            require_once $file;
+            return;
+        }
+    }
+});
 
 // Extract Route
 $route = $_GET['route'] ?? '';

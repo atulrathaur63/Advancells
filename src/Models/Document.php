@@ -19,7 +19,13 @@ class Document {
         'other'               => ['label' => 'Other Certificate / Document', 'mandatory' => false, 'icon' => 'fa-folder-open']
     ];
 
-    public const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png'];
+    public const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+    public const ALLOWED_MIME_TYPES = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'image/webp'
+    ];
     public const MAX_FILE_SIZE = 5242880; // 5 MB
 
     public static function getTypes(): array {
@@ -46,7 +52,33 @@ class Document {
         $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
 
         if (!in_array($ext, self::ALLOWED_EXTENSIONS, true)) {
-            throw new Exception("Invalid file type. Only PDF, JPG, and PNG files are permitted.");
+            throw new Exception("Invalid file type. Only PDF, JPG, PNG, and WebP files are permitted.");
+        }
+
+        // Real binary MIME-type inspection (magic bytes sniffing)
+        $tmpRaw = $file['tmp_name'] ?? '';
+        $tmpPath = !empty($tmpRaw) ? (realpath($tmpRaw) ?: $tmpRaw) : '';
+        if (empty($tmpPath) || !file_exists($tmpPath) || !is_readable($tmpPath)) {
+            throw new Exception("Uploaded temporary file is inaccessible.");
+        }
+
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $detectedMime = @$finfo->file($tmpPath);
+
+        if (!in_array($detectedMime, self::ALLOWED_MIME_TYPES, true)) {
+            throw new Exception("Security Alert: Disguised or unauthorized file content detected ({$detectedMime}). Only genuine PDF, JPG, PNG, or WebP documents are permitted.");
+        }
+
+        // Ensure file extension strictly aligns with detected binary MIME type
+        $mimeExtMap = [
+            'application/pdf' => ['pdf'],
+            'image/jpeg'      => ['jpg', 'jpeg'],
+            'image/png'       => ['png'],
+            'image/webp'      => ['webp']
+        ];
+
+        if (!isset($mimeExtMap[$detectedMime]) || !in_array($ext, $mimeExtMap[$detectedMime], true)) {
+            throw new Exception("Security Alert: File extension (.{$ext}) does not match genuine binary format ({$detectedMime}).");
         }
 
         if (!array_key_exists($docType, self::TYPES)) {
@@ -69,7 +101,11 @@ class Document {
         $targetPath = $targetDir . '/' . $safeFileName;
         $relativeFilePath = $relativeDir . '/' . $safeFileName;
 
-        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+        $stored = is_uploaded_file($file['tmp_name']) 
+            ? move_uploaded_file($file['tmp_name'], $targetPath) 
+            : copy($file['tmp_name'], $targetPath);
+
+        if (!$stored) {
             throw new Exception("Failed to store uploaded file on the server.");
         }
 
@@ -206,7 +242,7 @@ class Document {
      * Find single document by ID
      */
     public static function findById(int $id): ?array {
-        $sql = "SELECT d.*, e.first_name, e.last_name, e.emp_code, e.user_id AS emp_user_id
+        $sql = "SELECT d.*, e.first_name, e.last_name, e.emp_code, e.user_id, e.user_id AS emp_user_id
                 FROM employee_documents d
                 JOIN employees e ON d.employee_id = e.id
                 WHERE d.id = ?";

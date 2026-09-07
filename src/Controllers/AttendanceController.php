@@ -105,7 +105,8 @@ class AttendanceController {
         $empId = Auth::employeeId();
 
         $managerId = ($role === 'manager') ? $empId : null;
-        $requests = Attendance::getRegularizationRequests($managerId);
+        $subordinateIds = ($role === 'manager') ? Employee::getSubordinateIds((int)$empId, false) : [];
+        $requests = Attendance::getRegularizationRequests($managerId, null, $subordinateIds);
 
         require_once BASE_PATH . '/views/attendance/regularize_approvals.php';
     }
@@ -115,7 +116,21 @@ class AttendanceController {
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && validate_csrf()) {
             $id = (int)($_POST['id'] ?? 0);
             $remarks = trim($_POST['admin_remarks'] ?? '');
+            $approverEmpId = (int)Auth::employeeId();
+
             $regReq = Database::fetchOne("SELECT r.*, e.user_id, e.first_name FROM attendance_regularizations r JOIN employees e ON r.employee_id = e.id WHERE r.id = ?", [$id]);
+            if (!$regReq) {
+                flash('danger', 'Regularization request not found.');
+                redirect('attendance/regularize-approvals');
+            }
+
+            if (Auth::role() === 'manager') {
+                if ((int)$regReq['manager_id'] !== $approverEmpId && !Employee::isSubordinateOf((int)$regReq['employee_id'], $approverEmpId)) {
+                    flash('danger', 'Unauthorized! You can only approve attendance regularizations for your own team members.');
+                    redirect('attendance/regularize-approvals');
+                }
+            }
+
             if (Attendance::approveRegularization($id, $remarks)) {
                 if ($regReq && !empty($regReq['user_id'])) {
                     Notification::send((int)$regReq['user_id'], 'attendance', 'Regularization Approved', "Your regularization request for {$regReq['date']} was approved.", 'attendance/my-attendance', 'fa-clock-rotate-left', '#16a34a');
@@ -133,7 +148,21 @@ class AttendanceController {
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && validate_csrf()) {
             $id = (int)($_POST['id'] ?? 0);
             $remarks = trim($_POST['admin_remarks'] ?? '');
+            $approverEmpId = (int)Auth::employeeId();
+
             $regReq = Database::fetchOne("SELECT r.*, e.user_id, e.first_name FROM attendance_regularizations r JOIN employees e ON r.employee_id = e.id WHERE r.id = ?", [$id]);
+            if (!$regReq) {
+                flash('danger', 'Regularization request not found.');
+                redirect('attendance/regularize-approvals');
+            }
+
+            if (Auth::role() === 'manager') {
+                if ((int)$regReq['manager_id'] !== $approverEmpId && !Employee::isSubordinateOf((int)$regReq['employee_id'], $approverEmpId)) {
+                    flash('danger', 'Unauthorized! You can only reject attendance regularizations for your own team members.');
+                    redirect('attendance/regularize-approvals');
+                }
+            }
+
             if (Attendance::rejectRegularization($id, $remarks)) {
                 if ($regReq && !empty($regReq['user_id'])) {
                     Notification::send((int)$regReq['user_id'], 'attendance', 'Regularization Rejected', "Your regularization request for {$regReq['date']} was rejected.", 'attendance/my-attendance', 'fa-clock-rotate-left', '#dc2626');
@@ -155,14 +184,20 @@ class AttendanceController {
             'status' => $_GET['status'] ?? null
         ];
 
+        $subordinateIds = [];
+        if (Auth::role() === 'manager') {
+            $subordinateIds = Employee::getSubordinateIds((int)Auth::employeeId(), true);
+            $filters['employee_ids'] = $subordinateIds;
+        }
+
         if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             $this->exportCsv($filters);
             return;
         }
 
         $logs = Attendance::getAttendanceLogs($filters);
-        $departments = Department::getAll();
-        $todayStats = Attendance::getTodayCompanyStats();
+        $departments = (Auth::role() === 'manager') ? [] : Department::getAll();
+        $todayStats = Attendance::getTodayCompanyStats($subordinateIds);
 
         require_once BASE_PATH . '/views/attendance/admin_logs.php';
     }
@@ -208,8 +243,13 @@ class AttendanceController {
             $year = (int)date('Y');
         }
 
-        $matrixData = Attendance::getCompanyMonthlyMatrix($month, $year, $departmentId);
-        $departments = Department::getAll();
+        $scopedEmployeeIds = [];
+        if (Auth::role() === 'manager') {
+            $scopedEmployeeIds = Employee::getSubordinateIds((int)Auth::employeeId(), true);
+        }
+
+        $matrixData = Attendance::getCompanyMonthlyMatrix($month, $year, $departmentId, $scopedEmployeeIds);
+        $departments = (Auth::role() === 'manager') ? [] : Department::getAll();
 
         if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             $this->exportMatrixCsv($matrixData);

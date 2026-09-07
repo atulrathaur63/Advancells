@@ -95,6 +95,7 @@ function status_badge(string $status): string {
         'pending' => 'badge-warning',
         'submitted' => 'badge-warning',
         'in_progress' => 'badge-info',
+        'reviewed' => 'badge-info',
         'draft' => 'badge-secondary',
         'late' => 'badge-orange',
         'half_day' => 'badge-warning',

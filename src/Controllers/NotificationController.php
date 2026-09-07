@@ -24,9 +24,7 @@ class NotificationController {
             }
         }
 
-        $referer = $_SERVER['HTTP_REFERER'] ?? 'dashboard';
-        header("Location: " . $referer);
-        exit;
+        $this->safeRedirectBack();
     }
 
     /**
@@ -44,9 +42,16 @@ class NotificationController {
             exit;
         }
 
-        $referer = $_SERVER['HTTP_REFERER'] ?? 'dashboard';
-        header("Location: " . $referer);
-        exit;
+        $this->safeRedirectBack();
+    }
+
+    private function safeRedirectBack(): void {
+        $referer = $_SERVER['HTTP_REFERER'] ?? '';
+        if (!empty($referer) && str_starts_with($referer, BASE_URL)) {
+            header("Location: " . $referer);
+            exit;
+        }
+        redirect('dashboard');
     }
 
     /**

@@ -37,6 +37,26 @@ class Leave {
         if ($employeeId !== null) {
             $sql .= " AND lr.employee_id = ?";
             $params[] = $employeeId;
+        } elseif (isset($filters['employee_ids'])) {
+            $subIds = array_values(array_filter(array_map('intval', (array)$filters['employee_ids'])));
+            if (!empty($subIds)) {
+                $placeholders = implode(',', array_fill(0, count($subIds), '?'));
+                if ($managerId !== null) {
+                    $sql .= " AND (lr.employee_id IN ({$placeholders}) OR lr.manager_id = ? OR e.manager_id = ?)";
+                    $params = array_merge($params, $subIds, [$managerId, $managerId]);
+                } else {
+                    $sql .= " AND lr.employee_id IN ({$placeholders})";
+                    $params = array_merge($params, $subIds);
+                }
+            } else {
+                if ($managerId !== null) {
+                    $sql .= " AND (lr.manager_id = ? OR e.manager_id = ?)";
+                    $params[] = $managerId;
+                    $params[] = $managerId;
+                } else {
+                    $sql .= " AND 1=0";
+                }
+            }
         } elseif ($managerId !== null) {
             $sql .= " AND (lr.manager_id = ? OR e.manager_id = ?)";
             $params[] = $managerId;

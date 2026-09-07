@@ -35,7 +35,7 @@ if (Auth::isHR()) {
             <img src="<?= url('assets/img/logo.png') ?>" alt="Advancells Group">
         </a>
         <div class="sidebar-tagline">
-            <span>HRMS ENTERPRISE</span>
+            <span>HRMS</span>
             <span style="display:inline-flex; align-items:center; gap:5px; color:#10b981; font-size:10.5px; font-weight:700;">
                 <span class="pulse-dot" style="width:6px; height:6px;"></span> LIVE
             </span>

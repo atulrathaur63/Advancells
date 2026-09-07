@@ -23,6 +23,13 @@ class EmployeeController {
             'search' => trim($_GET['search'] ?? '')
         ];
 
+        // Managers can only see their assigned reportees and themselves
+        if (Auth::role() === 'manager') {
+            $managerEmpId = (int)Auth::employeeId();
+            $subordinateIds = Employee::getSubordinateIds($managerEmpId, true);
+            $filters['employee_ids'] = !empty($subordinateIds) ? $subordinateIds : [-1];
+        }
+
         if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             $this->exportCsv($filters);
             return;
@@ -201,9 +208,18 @@ class EmployeeController {
         
         // Non-admin can only view self or reportees
         $currentRole = Auth::role();
-        if ($currentRole === 'employee' && $id !== Auth::employeeId()) {
+        $currentEmpId = (int)Auth::employeeId();
+
+        if ($currentRole === 'employee' && $id !== $currentEmpId) {
             flash('danger', 'You can only view your own profile.');
-            redirect('employees/view?id=' . Auth::employeeId());
+            redirect('employees/view?id=' . $currentEmpId);
+        }
+
+        if ($currentRole === 'manager') {
+            if ($id !== $currentEmpId && !Employee::isSubordinateOf($id, $currentEmpId)) {
+                flash('danger', 'Unauthorized access! You can only view profiles of your direct or indirect team reportees.');
+                redirect('employees/view?id=' . $currentEmpId);
+            }
         }
 
         $employee = Employee::findById($id);

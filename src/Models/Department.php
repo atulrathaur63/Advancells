@@ -7,12 +7,10 @@ require_once __DIR__ . '/../Database.php';
 
 class Department {
     public static function getAll(): array {
-        $sql = "SELECT d.*, COUNT(e.id) AS employee_count,
-                       CONCAT(m.first_name, ' ', m.last_name) AS head_name
+        $sql = "SELECT d.*,
+                       (SELECT COUNT(*) FROM employees e WHERE e.department_id = d.id AND e.status = 'active') AS employee_count,
+                       (SELECT CONCAT(m.first_name, ' ', m.last_name) FROM employees m WHERE m.id = d.head_id) AS head_name
                 FROM departments d
-                LEFT JOIN employees e ON d.id = e.department_id AND e.status = 'active'
-                LEFT JOIN employees m ON d.head_id = m.id
-                GROUP BY d.id
                 ORDER BY d.name ASC";
         return Database::fetchAll($sql);
     }
@@ -22,16 +20,16 @@ class Department {
     }
 
     public static function getDesignations(?int $departmentId = null): array {
-        $sql = "SELECT des.*, d.name AS department_name, COUNT(e.id) AS employee_count
+        $sql = "SELECT des.*, d.name AS department_name,
+                       (SELECT COUNT(*) FROM employees e WHERE e.designation_id = des.id AND e.status = 'active') AS employee_count
                 FROM designations des
-                JOIN departments d ON des.department_id = d.id
-                LEFT JOIN employees e ON des.id = e.designation_id AND e.status = 'active'";
+                JOIN departments d ON des.department_id = d.id";
         $params = [];
         if ($departmentId !== null) {
             $sql .= " WHERE des.department_id = ?";
             $params[] = $departmentId;
         }
-        $sql .= " GROUP BY des.id ORDER BY d.name ASC, des.title ASC";
+        $sql .= " ORDER BY d.name ASC, des.title ASC";
         return Database::fetchAll($sql, $params);
     }
 
