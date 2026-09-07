@@ -90,7 +90,8 @@ class Employee {
                 'email' => strtolower(trim($data['email'])),
                 'password' => $hashedPassword,
                 'role' => $role,
-                'status' => 'active'
+                'status' => 'active',
+                'avatar' => !empty($data['avatar']) ? $data['avatar'] : null
             ]);
 
             // 2. Create Employee
@@ -217,6 +218,9 @@ class Employee {
         }
         if (!empty($data['status'])) {
             $userData['status'] = ($data['status'] === 'active') ? 'active' : 'inactive';
+        }
+        if (array_key_exists('avatar', $data)) {
+            $userData['avatar'] = $data['avatar'];
         }
         Database::update('users', $userData, "id = ?", [$emp['user_id']]);
 

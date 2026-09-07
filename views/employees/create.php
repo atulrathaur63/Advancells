@@ -9,7 +9,7 @@ require_once BASE_PATH . '/views/layouts/header.php';
         <a href="<?= url('employees') ?>" class="btn btn-sm btn-secondary"><i class="fa-solid fa-arrow-left"></i> Back to Directory</a>
     </div>
     <div class="card-body">
-        <form action="<?= url('employees/create') ?>" method="POST" id="employeeForm">
+        <form action="<?= url('employees/create') ?>" method="POST" enctype="multipart/form-data" id="employeeForm">
             <?= csrf_field() ?>
 
             <div class="nav-tabs">
@@ -20,6 +20,26 @@ require_once BASE_PATH . '/views/layouts/header.php';
 
             <!-- Tab 1: Personal Details -->
             <div id="tab-personal" class="tab-content active">
+                <!-- Profile Picture Upload Block -->
+                <div style="display: flex; align-items: center; gap: 20px; padding: 16px 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 24px;">
+                    <div style="position: relative; width: 76px; height: 76px; flex-shrink: 0;">
+                        <div id="avatarPreviewBox" style="width: 76px; height: 76px; border-radius: 50%; background: linear-gradient(135deg, #93206c, #0284c7); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; border: 3px solid #fff; box-shadow: 0 4px 12px rgba(147,32,108,0.2); overflow: hidden;">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="form-label" style="margin-bottom: 4px; font-weight: 700;">Employee Profile Photo (Optional)</label>
+                        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <label for="avatarInput" class="btn btn-outline btn-sm" style="cursor: pointer; margin: 0;">
+                                <i class="fa-solid fa-camera"></i> Choose Photo
+                            </label>
+                            <input type="file" name="avatar" id="avatarInput" accept="image/jpeg,image/png,image/webp" style="display: none;" onchange="previewCreateAvatar(this)">
+                            <span id="avatarFileName" style="font-size: 12.5px; color: var(--text-muted);">No photo selected</span>
+                        </div>
+                        <div style="font-size: 11.5px; color: #94a3b8; margin-top: 4px;">Supported: JPG, JPEG, PNG, WEBP (Max: 2MB). A default initial avatar will be created if no photo is uploaded.</div>
+                    </div>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label" for="first_name">First Name *</label>
@@ -251,6 +271,24 @@ function calculateSalary() {
     if (basic > 0) {
         document.getElementById('hra').value = (basic * 0.40).toFixed(2);
         document.getElementById('pf_deduction').value = (basic * 0.12).toFixed(2);
+    }
+}
+
+function previewCreateAvatar(input) {
+    const file = input.files[0];
+    const previewBox = document.getElementById('avatarPreviewBox');
+    const fileName = document.getElementById('avatarFileName');
+    
+    if (file) {
+        fileName.textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewBox.innerHTML = `<img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        fileName.textContent = 'No photo selected';
+        previewBox.innerHTML = '<i class="fa-solid fa-user"></i>';
     }
 }
 </script>

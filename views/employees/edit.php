@@ -9,8 +9,39 @@ require_once BASE_PATH . '/views/layouts/header.php';
         <a href="<?= url('employees/view?id=' . $employee['id']) ?>" class="btn btn-sm btn-secondary"><i class="fa-solid fa-arrow-left"></i> View Profile</a>
     </div>
     <div class="card-body">
-        <form action="<?= url('employees/edit?id=' . $employee['id']) ?>" method="POST">
+        <form action="<?= url('employees/edit?id=' . $employee['id']) ?>" method="POST" enctype="multipart/form-data">
             <?= csrf_field() ?>
+
+            <!-- Profile Photo Management Section -->
+            <div style="display: flex; align-items: center; gap: 20px; padding: 16px 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 24px; flex-wrap: wrap;">
+                <div style="position: relative; width: 76px; height: 76px; flex-shrink: 0;">
+                    <div id="avatarEditPreviewBox" style="width: 76px; height: 76px; border-radius: 50%; background: linear-gradient(135deg, #93206c, #0284c7); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; border: 3px solid #fff; box-shadow: 0 4px 12px rgba(147,32,108,0.2); overflow: hidden;">
+                        <?php if (!empty($employee['avatar']) && file_exists(BASE_PATH . '/' . $employee['avatar'])): ?>
+                            <img src="<?= url($employee['avatar']) ?>?t=<?= time() ?>" alt="<?= e($employee['first_name']) ?>" style="width: 100%; height: 100%; object-fit: cover;">
+                        <?php else: ?>
+                            <?= strtoupper(substr($employee['first_name'], 0, 1)) ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div style="flex: 1; min-width: 260px;">
+                    <label class="form-label" style="margin-bottom: 4px; font-weight: 700;">Employee Profile Photo</label>
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <label for="avatarEditInput" class="btn btn-outline btn-sm" style="cursor: pointer; margin: 0;">
+                            <i class="fa-solid fa-camera"></i> Change Photo
+                        </label>
+                        <input type="file" name="avatar" id="avatarEditInput" accept="image/jpeg,image/png,image/webp" style="display: none;" onchange="previewEditAvatar(this)">
+                        <span id="avatarEditFileName" style="font-size: 12.5px; color: var(--text-muted);">No new photo chosen</span>
+                        
+                        <?php if (!empty($employee['avatar'])): ?>
+                            <label style="display: inline-flex; align-items: center; gap: 6px; margin: 0 0 0 10px; font-size: 12.5px; color: #dc2626; cursor: pointer;">
+                                <input type="checkbox" name="remove_avatar" value="1" id="removeAvatarCheck" onchange="toggleRemoveAvatar(this)">
+                                <i class="fa-solid fa-trash-can"></i> Remove Photo
+                            </label>
+                        <?php endif; ?>
+                    </div>
+                    <div style="font-size: 11.5px; color: #94a3b8; margin-top: 4px;">Supported: JPG, JPEG, PNG, WEBP (Max: 2MB). Uploading a new photo replaces the existing one.</div>
+                </div>
+            </div>
 
             <div class="form-row">
                 <div class="form-group">
@@ -131,5 +162,46 @@ require_once BASE_PATH . '/views/layouts/header.php';
         </form>
     </div>
 </div>
+
+<script>
+function previewEditAvatar(input) {
+    const file = input.files[0];
+    const previewBox = document.getElementById('avatarEditPreviewBox');
+    const fileName = document.getElementById('avatarEditFileName');
+    const removeCheck = document.getElementById('removeAvatarCheck');
+    
+    if (removeCheck) removeCheck.checked = false;
+    
+    if (file) {
+        fileName.textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewBox.innerHTML = `<img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        fileName.textContent = 'No new photo chosen';
+    }
+}
+
+function toggleRemoveAvatar(checkbox) {
+    const previewBox = document.getElementById('avatarEditPreviewBox');
+    const fileInput = document.getElementById('avatarEditInput');
+    const fileName = document.getElementById('avatarEditFileName');
+    
+    if (checkbox.checked) {
+        fileInput.value = '';
+        fileName.textContent = 'Will be removed on save';
+        previewBox.innerHTML = '<?= strtoupper(substr($employee['first_name'], 0, 1)) ?>';
+    } else {
+        fileName.textContent = 'No new photo chosen';
+        <?php if (!empty($employee['avatar']) && file_exists(BASE_PATH . '/' . $employee['avatar'])): ?>
+            previewBox.innerHTML = `<img src="<?= url($employee['avatar']) ?>?t=<?= time() ?>" style="width: 100%; height: 100%; object-fit: cover;">`;
+        <?php else: ?>
+            previewBox.innerHTML = '<?= strtoupper(substr($employee['first_name'], 0, 1)) ?>';
+        <?php endif; ?>
+    }
+}
+</script>
 
 <?php require_once BASE_PATH . '/views/layouts/footer.php'; ?>

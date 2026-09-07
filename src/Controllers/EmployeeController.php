@@ -60,11 +60,49 @@ class EmployeeController {
                 redirect('employees/create');
             }
 
+            // Avatar Upload Handling
+            $avatarPath = null;
+            if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+                $file = $_FILES['avatar'];
+                $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mime = $finfo->file($file['tmp_name']);
+
+                $allowed = ['jpg', 'jpeg', 'png', 'webp'];
+                $allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+
+                if (!in_array($ext, $allowed, true) || !in_array($mime, $allowedMimes, true)) {
+                    flash('danger', 'Invalid photo format! Only JPG, JPEG, PNG, and WEBP images are permitted.');
+                    redirect('employees/create');
+                } elseif ($file['size'] > 2 * 1024 * 1024) {
+                    flash('danger', 'Photo size exceeds 2MB limit! Please upload a smaller image.');
+                    redirect('employees/create');
+                } else {
+                    $dir = 'assets/uploads/avatars';
+                    $fullDir = BASE_PATH . '/' . $dir;
+                    if (!is_dir($fullDir)) {
+                        mkdir($fullDir, 0755, true);
+                    }
+                    $filename = 'avatar_emp_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                    $dest = $fullDir . '/' . $filename;
+                    if (move_uploaded_file($file['tmp_name'], $dest)) {
+                        $avatarPath = $dir . '/' . $filename;
+                    }
+                }
+            }
+
             try {
-                $newId = Employee::create($_POST, $password, $role);
+                $postData = $_POST;
+                if ($avatarPath) {
+                    $postData['avatar'] = $avatarPath;
+                }
+                $newId = Employee::create($postData, $password, $role);
                 flash('success', "Employee {$empCode} created successfully with default login password: {$password}");
                 redirect('employees/view?id=' . $newId);
             } catch (Exception $e) {
+                if ($avatarPath && file_exists(BASE_PATH . '/' . $avatarPath)) {
+                    @unlink(BASE_PATH . '/' . $avatarPath);
+                }
                 flash('danger', 'Failed to create employee: ' . $e->getMessage());
                 redirect('employees/create');
             }
@@ -93,8 +131,48 @@ class EmployeeController {
             }
 
             $role = $_POST['role'] ?? null;
+            $postData = $_POST;
+            $removeAvatar = !empty($_POST['remove_avatar']);
+
+            if ($removeAvatar) {
+                if (!empty($employee['avatar']) && file_exists(BASE_PATH . '/' . $employee['avatar'])) {
+                    @unlink(BASE_PATH . '/' . $employee['avatar']);
+                }
+                $postData['avatar'] = null;
+            } elseif (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+                $file = $_FILES['avatar'];
+                $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mime = $finfo->file($file['tmp_name']);
+
+                $allowed = ['jpg', 'jpeg', 'png', 'webp'];
+                $allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+
+                if (!in_array($ext, $allowed, true) || !in_array($mime, $allowedMimes, true)) {
+                    flash('danger', 'Invalid photo format! Only JPG, JPEG, PNG, and WEBP images are permitted.');
+                    redirect('employees/edit?id=' . $id);
+                } elseif ($file['size'] > 2 * 1024 * 1024) {
+                    flash('danger', 'Photo size exceeds 2MB limit! Please upload a smaller image.');
+                    redirect('employees/edit?id=' . $id);
+                } else {
+                    $dir = 'assets/uploads/avatars';
+                    $fullDir = BASE_PATH . '/' . $dir;
+                    if (!is_dir($fullDir)) {
+                        mkdir($fullDir, 0755, true);
+                    }
+                    $filename = 'avatar_emp_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                    $dest = $fullDir . '/' . $filename;
+                    if (move_uploaded_file($file['tmp_name'], $dest)) {
+                        if (!empty($employee['avatar']) && file_exists(BASE_PATH . '/' . $employee['avatar'])) {
+                            @unlink(BASE_PATH . '/' . $employee['avatar']);
+                        }
+                        $postData['avatar'] = $dir . '/' . $filename;
+                    }
+                }
+            }
+
             try {
-                Employee::update($id, $_POST, $role);
+                Employee::update($id, $postData, $role);
 
                 // Update salary if specified
                 if (isset($_POST['basic_salary'])) {
