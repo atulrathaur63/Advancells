@@ -1,0 +1,44 @@
+@media print {
+    body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-size: 12pt;
+    }
+
+    .app-sidebar,
+    .app-header,
+    .btn,
+    .no-print,
+    .flash-container,
+    .header-right {
+        display: none !important;
+    }
+
+    .app-main {
+        margin-left: 0 !important;
+    }
+
+    .content-wrapper {
+        padding: 0 !important;
+    }
+
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .payslip-container {
+        border: 2px solid #333 !important;
+        padding: 24px !important;
+        width: 100% !important;
+        page-break-inside: avoid;
+    }
+
+    .payslip-table th, 
+    .payslip-table td {
+        border: 1px solid #666 !important;
+        padding: 8px !important;
+    }
+}
