@@ -231,7 +231,7 @@ class EmployeeController {
         $employee = Employee::findById($id);
         if (!$employee) {
             flash('danger', 'Employee not found!');
-            redirect('employees');
+            redirect(Auth::isManager() ? 'employees' : 'dashboard');
         }
 
         $year = (int)date('Y');

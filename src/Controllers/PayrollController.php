@@ -91,7 +91,7 @@ class PayrollController {
 
         if (!$payslip) {
             flash('danger', 'Payslip not found!');
-            redirect('payroll');
+            redirect(Auth::isHR() ? 'payroll' : 'payroll/my-payslips');
         }
 
         // Authorization: HR/Admin or the owner of the payslip

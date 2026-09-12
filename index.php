@@ -96,6 +96,7 @@ switch ($route) {
     case 'attendance/punch':
         (new AttendanceController())->punch();
         break;
+    case 'attendance/my_attendance':
     case 'attendance/my-attendance':
         (new AttendanceController())->myAttendance();
         break;

@@ -14,7 +14,7 @@ class AssetController {
      * Master Asset Registry & Hardware Dashboard
      */
     public function index(): void {
-        Auth::requireRole(['super_admin', 'hr_admin', 'manager']);
+        Auth::requireRole(['super_admin', 'hr_admin']);
 
         $filters = [
             'category'    => $_GET['category'] ?? null,
@@ -163,7 +163,7 @@ class AssetController {
      * Allocate an available asset to an employee
      */
     public function allocate(): void {
-        Auth::requireRole(['super_admin', 'hr_admin', 'manager']);
+        Auth::requireRole(['super_admin', 'hr_admin']);
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !validate_csrf()) {
             flash('danger', 'Invalid request.');
@@ -192,7 +192,7 @@ class AssetController {
      * Process return of an allocated asset
      */
     public function returnAsset(): void {
-        Auth::requireRole(['super_admin', 'hr_admin', 'manager']);
+        Auth::requireRole(['super_admin', 'hr_admin']);
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !validate_csrf()) {
             flash('danger', 'Invalid request.');
@@ -221,7 +221,7 @@ class AssetController {
      * Single asset detail view with lifecycle history
      */
     public function view(): void {
-        Auth::requireRole(['super_admin', 'hr_admin', 'manager']);
+        Auth::requireRole(['super_admin', 'hr_admin']);
 
         $id = (int)($_GET['id'] ?? 0);
         $asset = Asset::findById($id);

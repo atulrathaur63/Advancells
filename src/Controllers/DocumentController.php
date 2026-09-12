@@ -230,10 +230,11 @@ class DocumentController {
      */
     public function delete(): void {
         Auth::requireLogin();
+        $fallbackRoute = Auth::isHR() ? 'documents' : 'documents/my-documents';
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !validate_csrf()) {
             flash('danger', 'Invalid request.');
-            redirect('documents');
+            redirect($fallbackRoute);
         }
 
         $id = (int)($_POST['id'] ?? 0);
@@ -241,7 +242,7 @@ class DocumentController {
 
         if (!$doc) {
             flash('danger', 'Document not found.');
-            redirect('documents');
+            redirect($fallbackRoute);
         }
 
         $isHR = Auth::isHR();
@@ -249,13 +250,13 @@ class DocumentController {
 
         if (!$isHR && !$isOwner) {
             flash('danger', 'You do not have permission to delete this verified document.');
-            redirect('documents');
+            redirect($fallbackRoute);
         }
 
         Document::delete($id);
         flash('success', "Document deleted successfully.");
 
-        $this->safeRedirect($_POST['redirect_to'] ?? null, 'documents');
+        $this->safeRedirect($_POST['redirect_to'] ?? null, $fallbackRoute);
     }
 
     private function safeRedirect(?string $target, string $defaultRoute = 'documents'): void {

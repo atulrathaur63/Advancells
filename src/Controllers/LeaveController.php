@@ -266,7 +266,13 @@ class LeaveController {
         Auth::requireLogin();
         $year = (int)($_GET['year'] ?? date('Y'));
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && Auth::isHR()) {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (!Auth::isHR()) {
+                flash('danger', 'Unauthorized access! Only HR Administrators can manage company holidays.');
+                redirect('leaves/holidays?year=' . $year);
+                return;
+            }
+
             if (!validate_csrf()) {
                 redirect('leaves/holidays?year=' . $year);
             }

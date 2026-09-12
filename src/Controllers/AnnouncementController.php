@@ -12,7 +12,13 @@ class AnnouncementController {
     public function index(): void {
         Auth::requireLogin();
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && Auth::isHR()) {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (!Auth::isHR()) {
+                flash('danger', 'Unauthorized access! Only HR Administrators can publish announcements.');
+                redirect('announcements');
+                return;
+            }
+
             if (!validate_csrf()) {
                 redirect('announcements');
             }

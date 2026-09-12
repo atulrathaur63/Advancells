@@ -98,7 +98,7 @@ class AttendanceController {
                 json_response(['success' => true, 'message' => 'Attendance regularization request submitted for manager approval!']);
             }
             flash('success', 'Attendance regularization request submitted for manager approval!');
-            redirect('attendance/my_attendance');
+            redirect('attendance/my-attendance');
         }
 
         $page = max(1, (int)($_GET['page'] ?? 1));

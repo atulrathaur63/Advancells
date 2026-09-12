@@ -274,7 +274,7 @@ class SearchController {
                 'icon' => 'fa-boxes-stacked',
                 'color' => '#7c3aed',
                 'badge' => 'Assets',
-                'roles' => ['super_admin', 'hr_admin', 'manager']
+                'roles' => ['super_admin', 'hr_admin']
             ],
             [
                 'title' => 'Document Verification Queue',
@@ -623,8 +623,8 @@ class SearchController {
 
         $params = [$like, $like, $like, $like, $like, $like, $like, $like];
 
-        // Regular employees can only see their own assigned assets
-        if (!$isHR && !$isManager) {
+        // Only HR Admin can search the master company inventory. Managers and employees can only see their own assigned assets
+        if (!$isHR) {
             if (!$empId) {
                 return [];
             }
@@ -649,7 +649,7 @@ class SearchController {
 
         foreach ($rows as $r) {
             $assignedTo = (!empty($r['first_name'])) ? trim($r['first_name'] . ' ' . $r['last_name']) : 'Available';
-            $targetUrl = ($isHR || $isManager) ? url('company-assets') : url('my-assets');
+            $targetUrl = $isHR ? url('company-assets') : url('my-assets');
 
             $items[] = [
                 'title' => $r['name'] . ' (' . $r['asset_code'] . ')',
