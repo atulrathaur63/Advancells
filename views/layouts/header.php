@@ -33,6 +33,37 @@ $recentNotifications = $currentUser ? Notification::getForUser((int)$currentUser
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
+<!-- ===================== PAGE LOADER ===================== -->
+<div id="page-loader">
+    <div id="loader-top-bar"></div>
+    <div class="g-loader-ring">
+        <span class="g-dot"></span>
+        <span class="g-dot"></span>
+        <span class="g-dot"></span>
+        <span class="g-dot"></span>
+    </div>
+    <div class="g-loader-label">Advancells Group</div>
+</div>
+
+<!-- ============= PREMIUM CONFIRM DIALOG ================= -->
+<div id="agy-confirm-backdrop">
+    <div id="agy-confirm-dialog">
+        <div id="agy-confirm-icon-wrap">
+            <div class="icon-circle danger" id="agy-confirm-icon">
+                <i class="fa-solid fa-triangle-exclamation" id="agy-confirm-icon-i"></i>
+            </div>
+        </div>
+        <div id="agy-confirm-body">
+            <h4 id="agy-confirm-title">Are you sure?</h4>
+            <p id="agy-confirm-message">This action cannot be undone.</p>
+        </div>
+        <div id="agy-confirm-footer">
+            <button id="agy-confirm-cancel" onclick="agConfirmResolve(false)">Cancel</button>
+            <button id="agy-confirm-ok" class="danger" onclick="agConfirmResolve(true)">Confirm</button>
+        </div>
+    </div>
+</div>
+
 <div class="app-container">
     <?php require_once __DIR__ . '/sidebar.php'; ?>
 
@@ -52,10 +83,16 @@ $recentNotifications = $currentUser ? Notification::getForUser((int)$currentUser
                 </div>
             </div>
 
-            <div class="header-search">
+            <div class="header-search" id="headerSearchWrapper">
                 <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                <input type="text" placeholder="Search employees, leaves, payroll..." aria-label="Global Search">
-                <span class="search-kbd">Ctrl K</span>
+                <input type="text" id="globalSearchInput" placeholder="Search employees, leaves, payroll..." aria-label="Global Search" autocomplete="off" spellcheck="false">
+                <button type="button" id="globalSearchClear" class="search-clear-btn" style="display: none;" title="Clear search (Esc)" aria-label="Clear Search">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                <span class="search-kbd" id="globalSearchKbd">Ctrl K</span>
+
+                <!-- Real-Time Search Results Dropdown -->
+                <div id="globalSearchResults" class="header-search-results" style="display: none;" role="listbox" aria-label="Search Results"></div>
             </div>
 
             <div class="header-right">
@@ -63,29 +100,35 @@ $recentNotifications = $currentUser ? Notification::getForUser((int)$currentUser
                 <?php if ($empId): ?>
                     <?php if ($todayPunch && !empty($todayPunch['punch_in'])): ?>
                         <?php if (!empty($todayPunch['punch_out'])): ?>
-                            <span class="badge badge-secondary" style="padding: 6px 12px; font-size: 11.5px;">
-                                <i class="fa-regular fa-circle-check" style="color: #64748b;"></i> Punched Out (<?= $todayPunch['total_hours'] ?>h)
+                            <span class="badge badge-secondary" style="padding: 6px 13px; font-size: 11.5px;">
+                                <i class="fa-regular fa-circle-check" style="color: var(--text-muted);"></i> Punched Out (<?= $todayPunch['total_hours'] ?>h)
                             </span>
                         <?php else: ?>
                             <a href="<?= url('attendance/punch') ?>" style="text-decoration: none;">
-                                <span class="badge badge-success" style="padding: 6px 12px; font-size: 11.5px; cursor: pointer;">
-                                    <span class="pulse-dot" style="width: 5px; height: 5px;"></span> In: <?= format_time($todayPunch['punch_in']) ?>
+                                <span class="badge badge-teal" style="padding: 6px 13px; font-size: 11.5px; cursor: pointer;">
+                                    <span class="pulse-dot" style="width: 6px; height: 6px; background: var(--brand-teal);"></span> In: <?= format_time($todayPunch['punch_in']) ?>
                                 </span>
                             </a>
                         <?php endif; ?>
                     <?php else: ?>
                         <a href="<?= url('attendance/punch') ?>" style="text-decoration: none;">
-                            <span class="badge badge-warning" style="padding: 6px 12px; font-size: 11.5px; cursor: pointer;">
+                            <span class="badge badge-warning" style="padding: 6px 13px; font-size: 11.5px; cursor: pointer;">
                                 <i class="fa-solid fa-clock"></i> Not Punched In
                             </span>
                         </a>
                     <?php endif; ?>
                 <?php endif; ?>
 
+                <!-- Mobile Search Trigger Button -->
+                <button type="button" class="header-btn mobile-search-btn" id="mobileSearchBtn" title="Search (Ctrl + K)" onclick="toggleMobileSearch(event)">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+
                 <!-- Real-time Clock Widget with Live Pulse -->
                 <div class="clock-widget">
-                    <span class="clock-live">--:--:--</span>
-                    <span style="font-size: 10px; color: #94a3b8; font-weight: 600;">IST</span>
+                    <span class="pulse-dot" style="width: 6px; height: 6px; background: var(--brand-teal);"></span>
+                    <span class="clock-live" style="letter-spacing: 0.5px;">--:--:--</span>
+                    <span style="font-size: 10px; color: #94a3b8; font-weight: 700;">IST</span>
                 </div>
 
                 <!-- In-App Notification Bell & Dropdown -->
@@ -93,7 +136,7 @@ $recentNotifications = $currentUser ? Notification::getForUser((int)$currentUser
                     <button type="button" class="header-btn" id="notifBellBtn" onclick="toggleNotificationDropdown(event)" title="Notifications" style="position: relative; cursor: pointer;">
                         <i class="fa-solid fa-bell" style="font-size: 15px;"></i>
                         <?php if ($unreadNotifCount > 0): ?>
-                            <span id="notifBadge" style="position: absolute; top: -2px; right: -2px; background: #e11d48; color: #ffffff; font-size: 10px; font-weight: 800; min-width: 17px; height: 17px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(225,29,72,0.4); animation: notifPulse 2s infinite;">
+                            <span id="notifBadge" style="position: absolute; top: -2px; right: -2px; background: var(--brand-plum); color: #ffffff; font-size: 10px; font-weight: 800; min-width: 17px; height: 17px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(164,36,122,0.4); animation: notifPulse 2s infinite;">
                                 <?= $unreadNotifCount > 9 ? '9+' : $unreadNotifCount ?>
                             </span>
                         <?php else: ?>
@@ -166,7 +209,7 @@ $recentNotifications = $currentUser ? Notification::getForUser((int)$currentUser
                         <i class="fa-solid fa-user-gear"></i>
                     <?php endif; ?>
                 </a>
-                <a href="<?= url('logout') ?>" class="header-btn" title="Sign Out" onclick="return confirmAction('Sign out from your active session?')">
+                <a href="javascript:void(0)" class="header-btn" title="Sign Out" onclick="agLogout(event)">
                     <i class="fa-solid fa-arrow-right-from-bracket"></i>
                 </a>
             </div>
@@ -175,13 +218,21 @@ $recentNotifications = $currentUser ? Notification::getForUser((int)$currentUser
         <main class="content-wrapper">
             <!-- Flash Notification Alerts -->
             <div class="flash-container">
-                <?php foreach (get_flash() as $msg): ?>
+                <?php foreach (get_flash() as $msg):
+                    $icons = [
+                        'success' => 'fa-circle-check',
+                        'danger'  => 'fa-circle-exclamation',
+                        'warning' => 'fa-triangle-exclamation',
+                        'info'    => 'fa-circle-info',
+                    ];
+                    $icon = $icons[$msg['type']] ?? 'fa-circle-info';
+                ?>
                     <div class="alert alert-<?= e($msg['type']) ?>">
-                        <span style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fa-solid fa-circle-info"></i>
+                        <span style="display: flex; align-items: center; gap: 9px;">
+                            <i class="fa-solid <?= $icon ?>"></i>
                             <?= e($msg['message']) ?>
                         </span>
-                        <button type="button" style="background:none;border:none;cursor:pointer;font-size:16px;" onclick="this.parentElement.remove()">
+                        <button type="button" class="alert-dismiss-btn" aria-label="Dismiss" onclick="agDismissAlert(this)">
                             <i class="fa-solid fa-xmark"></i>
                         </button>
                     </div>
@@ -229,5 +280,21 @@ function markAllNotificationsRead() {
     }).catch(err => {
         window.location.href = '<?= url("notifications/mark-all-read") ?>';
     });
+}
+
+// Expose URLs to global JS
+window._logoutUrl = '<?= url("logout") ?>';
+window._searchApiUrl = '<?= url("api/search") ?>';
+
+function toggleMobileSearch(e) {
+    if (e) e.stopPropagation();
+    const wrapper = document.getElementById('headerSearchWrapper');
+    const input = document.getElementById('globalSearchInput');
+    if (wrapper && input) {
+        wrapper.classList.toggle('mobile-open');
+        if (wrapper.classList.contains('mobile-open')) {
+            input.focus();
+        }
+    }
 }
 </script>

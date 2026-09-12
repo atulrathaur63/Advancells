@@ -109,7 +109,14 @@ class PayrollController {
         Auth::requireLogin();
         $empId = Auth::employeeId();
 
-        $payrolls = Payroll::getPayrolls(['employee_id' => $empId]);
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = max(1, min(100, (int)($_GET['per_page'] ?? 12)));
+
+        $filters = ['employee_id' => $empId];
+        $totalPayrolls = Payroll::countPayrolls($filters);
+        $pagination = paginate($totalPayrolls, $page, $perPage);
+        $payrolls = Payroll::getPayrolls($filters, $pagination['limit'], $pagination['offset']);
+
         require_once BASE_PATH . '/views/payroll/my_payslips.php';
     }
 

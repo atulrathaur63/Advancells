@@ -87,7 +87,7 @@ require_once BASE_PATH . '/views/layouts/header.php';
     <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
         <h3 class="card-title">
             <i class="fa-solid fa-folder-open" style="color: var(--primary);"></i>
-            Compliance Records & Document Register (<?= count($documents) ?>)
+            Compliance Records & Document Register (<?= $pagination['total_items'] ?? count($documents) ?>)
         </h3>
     </div>
 
@@ -309,6 +309,9 @@ require_once BASE_PATH . '/views/layouts/header.php';
                     </tbody>
                 </table>
             </div>
+            <?php if (isset($pagination)): ?>
+                <?= render_pagination($pagination) ?>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>

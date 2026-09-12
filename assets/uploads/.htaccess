@@ -1,0 +1,26 @@
+# Advancells HRMS - Upload Directory Security Guard
+# Disable script execution across all upload subdirectories
+
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|php8|phps|exe|pl|py|cgi|sh|bat|cmd)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Deny,Allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Turn off PHP engine if mod_php is used
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+
+# Disable directory browsing
+Options -Indexes

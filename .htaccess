@@ -2,9 +2,19 @@
     RewriteEngine On
     RewriteBase /advancells/
 
-    # Direct access to actual existing files and directories
-    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    # Disable directory listing
+    Options -Indexes
+
+    # Intercept /assets or /assets/ so it doesn't open the physical directory
+    RewriteRule ^assets/?$ index.php?route=company-assets [QSA,L]
+
+    # Direct access to actual existing files
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # Direct access to existing directories (except assets)
     RewriteCond %{REQUEST_FILENAME} -d
+    RewriteCond %{REQUEST_URI} !^/advancells/assets/?$ [NC]
     RewriteRule ^ - [L]
 
     # Rewrite all requests to index.php

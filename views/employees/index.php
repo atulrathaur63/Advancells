@@ -7,10 +7,10 @@ require_once BASE_PATH . '/views/layouts/header.php';
     <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
         <h2 class="card-title">
             <i class="fa-solid fa-users" style="color: var(--primary);"></i>
-            Employee Directory (<?= count($employees) ?> Staff Members)
+            Employee Directory (<?= $pagination['total_items'] ?? count($employees) ?> Staff Members)
         </h2>
         <div style="display: flex; gap: 10px;">
-            <a href="<?= url('employees?export=csv' . (!empty($filters['department_id']) ? '&department_id=' . $filters['department_id'] : '') . (!empty($filters['status']) ? '&status=' . $filters['status'] : '')) ?>" class="btn btn-sm btn-secondary">
+            <a href="<?= url('employees?export=csv' . (!empty($filters['search']) ? '&search=' . urlencode($filters['search']) : '') . (!empty($filters['department_id']) ? '&department_id=' . $filters['department_id'] : '') . (!empty($filters['status']) ? '&status=' . $filters['status'] : '')) ?>" class="btn btn-sm btn-secondary">
                 <i class="fa-solid fa-file-csv"></i> Export CSV
             </a>
             <?php if (Auth::isHR()): ?>
@@ -139,6 +139,9 @@ require_once BASE_PATH . '/views/layouts/header.php';
                     </tbody>
                 </table>
             </div>
+            <?php if (isset($pagination)): ?>
+                <?= render_pagination($pagination) ?>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>

@@ -22,13 +22,14 @@ require_once BASE_PATH . '/views/layouts/header.php';
                             <th>Submitted On</th>
                             <th>Desired Last Day</th>
                             <th>Approved Last Day</th>
-                            <th>Reason</th>
+                            <th>Assets Clearance</th>
                             <th>Status</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($resignations as $r): ?>
+                            <?php $pendingCount = count($r['pending_assets'] ?? []); ?>
                             <tr>
                                 <td>
                                     <strong><?= e($r['employee_name']) ?></strong><br>
@@ -37,7 +38,30 @@ require_once BASE_PATH . '/views/layouts/header.php';
                                 <td><?= format_date($r['resignation_date']) ?></td>
                                 <td><strong><?= format_date($r['desired_last_working_day']) ?></strong></td>
                                 <td><?= $r['approved_last_working_day'] ? format_date($r['approved_last_working_day']) : '<span style="color:#94a3b8;">Pending Approval</span>' ?></td>
-                                <td><small><?= e(substr($r['reason'], 0, 50)) ?>...</small></td>
+                                <td>
+                                    <?php if ($pendingCount === 0): ?>
+                                        <span class="badge badge-success" style="font-size: 11px;">
+                                            <i class="fa-solid fa-circle-check"></i> No Assets Held
+                                        </span>
+                                    <?php else: ?>
+                                        <div style="display: flex; flex-direction: column; gap: 3px;">
+                                            <span class="badge badge-danger" style="font-size: 11px; align-self: flex-start;">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> <?= $pendingCount ?> Asset(s) Pending
+                                            </span>
+                                            <div style="font-size: 11px; color: #dc2626; max-width: 170px; line-height: 1.3;">
+                                                <?php foreach (array_slice($r['pending_assets'], 0, 2) as $pa): ?>
+                                                    • <?= e($pa['name']) ?><br>
+                                                <?php endforeach; ?>
+                                                <?php if ($pendingCount > 2): ?>
+                                                    <span style="color: #64748b;">+<?= $pendingCount - 2 ?> more...</span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <a href="<?= url('employees/view?id=' . $r['employee_id'] . '&tab=assets') ?>" style="font-size: 11px; color: #2563eb; text-decoration: underline; font-weight: 600;">
+                                                Manage Returns &rarr;
+                                            </a>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= status_badge($r['status']) ?></td>
                                 <td>
                                     <?php if ($r['status'] !== 'completed' && $r['status'] !== 'rejected'): ?>
@@ -73,6 +97,9 @@ require_once BASE_PATH . '/views/layouts/header.php';
                     </tbody>
                 </table>
             </div>
+            <?php if (isset($pagination)): ?>
+                <?= render_pagination($pagination) ?>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>

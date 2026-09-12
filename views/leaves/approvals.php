@@ -7,18 +7,31 @@ require_once BASE_PATH . '/views/layouts/header.php';
     <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
         <h2 class="card-title">
             <i class="fa-solid fa-clipboard-check" style="color: var(--primary);"></i>
-            Leave Approvals Management (<?= count($requests) ?> Applications)
+            Leave Approvals Management (<?= $pagination['total_items'] ?? count($requests) ?> Applications)
         </h2>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
             <a href="<?= url('leaves/approvals?status=pending') ?>" class="btn btn-sm <?= ($status === 'pending') ? 'btn-primary' : 'btn-secondary' ?>">
-                <i class="fa-solid fa-clock"></i> Pending (<?= ($status === 'pending') ? count($requests) : '' ?>)
+                <i class="fa-solid fa-clock"></i> Pending <?= ($status === 'pending') ? '(' . ($pagination['total_items'] ?? count($requests)) . ')' : '' ?>
             </a>
             <a href="<?= url('leaves/approvals?status=approved') ?>" class="btn btn-sm <?= ($status === 'approved') ? 'btn-primary' : 'btn-secondary' ?>">
-                <i class="fa-solid fa-circle-check"></i> Approved
+                <i class="fa-solid fa-circle-check"></i> Approved <?= ($status === 'approved') ? '(' . ($pagination['total_items'] ?? count($requests)) . ')' : '' ?>
             </a>
             <a href="<?= url('leaves/approvals?status=rejected') ?>" class="btn btn-sm <?= ($status === 'rejected') ? 'btn-primary' : 'btn-secondary' ?>">
-                <i class="fa-solid fa-circle-xmark"></i> Rejected
+                <i class="fa-solid fa-circle-xmark"></i> Rejected <?= ($status === 'rejected') ? '(' . ($pagination['total_items'] ?? count($requests)) . ')' : '' ?>
             </a>
+            <a href="<?= url('leaves/approvals?status=cancelled') ?>" class="btn btn-sm <?= ($status === 'cancelled') ? 'btn-primary' : 'btn-secondary' ?>">
+                <i class="fa-solid fa-ban"></i> Cancelled <?= ($status === 'cancelled') ? '(' . ($pagination['total_items'] ?? count($requests)) . ')' : '' ?>
+            </a>
+
+            <?php if (Auth::isHR()): ?>
+                <form action="<?= url('leaves/sync-balances') ?>" method="POST" style="display: inline-block; margin: 0;">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="year" value="<?= date('Y') ?>">
+                    <button type="submit" class="btn btn-sm btn-secondary" title="Auto-recalculate & credit leaves for all active employees for current month">
+                        <i class="fa-solid fa-arrows-rotate"></i> Sync Monthly Accruals
+                    </button>
+                </form>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -79,30 +92,52 @@ require_once BASE_PATH . '/views/layouts/header.php';
                                     <?php endif; ?>
                                 </td>
                                 <td>
+                                    <?php
+                                        $isSelfRequest = Auth::role() !== 'super_admin' && (int)($req['employee_id'] ?? 0) === (int)Auth::employeeId();
+                                    ?>
                                     <?php if ($req['status'] === 'pending'): ?>
-                                        <div style="display: flex; gap: 6px;">
-                                            <!-- Approve Button Form -->
-                                            <form action="<?= url('leaves/approve') ?>" method="POST" style="display: inline;">
-                                                <?= csrf_field() ?>
-                                                <input type="hidden" name="request_id" value="<?= $req['id'] ?>">
-                                                <input type="hidden" name="approver_remarks" value="Approved">
-                                                <button type="submit" class="btn btn-sm btn-success" onclick="return confirmAction('Approve this leave request?')">
-                                                    <i class="fa-solid fa-check"></i> Approve
-                                                </button>
-                                            </form>
+                                        <?php if ($isSelfRequest): ?>
+                                            <span style="display: inline-flex; align-items: center; gap: 5px; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; border-radius: 8px; padding: 5px 10px; font-size: 11px; font-weight: 700; white-space: nowrap;">
+                                                <i class="fa-solid fa-lock" style="font-size: 10px;"></i>
+                                                Your Request — Awaiting Super Admin
+                                            </span>
+                                        <?php else: ?>
+                                            <div style="display: flex; gap: 6px;">
+                                                <!-- Approve Button Form -->
+                                                <form action="<?= url('leaves/approve') ?>" method="POST" style="display: inline;">
+                                                    <?= csrf_field() ?>
+                                                    <input type="hidden" name="request_id" value="<?= $req['id'] ?>">
+                                                    <input type="hidden" name="approver_remarks" value="Approved">
+                                                    <button type="submit" class="btn btn-sm btn-success" onclick="return confirmAction('Approve this leave request?')">
+                                                        <i class="fa-solid fa-check"></i> Approve
+                                                    </button>
+                                                </form>
 
-                                            <!-- Reject Button Form -->
-                                            <form action="<?= url('leaves/reject') ?>" method="POST" style="display: inline;">
+                                                <!-- Reject Button Form -->
+                                                <form action="<?= url('leaves/reject') ?>" method="POST" style="display: inline;">
+                                                    <?= csrf_field() ?>
+                                                    <input type="hidden" name="request_id" value="<?= $req['id'] ?>">
+                                                    <input type="hidden" name="approver_remarks" value="Operational requirements">
+                                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirmAction('Reject this leave request?')">
+                                                        <i class="fa-solid fa-xmark"></i> Reject
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        <?php endif; ?>
+                                    <?php elseif ($req['status'] === 'approved' && (Auth::isHR() || Auth::role() === 'super_admin')): ?>
+                                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                            <small style="color: var(--text-muted); font-size: 11px;"><?= e($req['approver_remarks'] ?: 'Approved') ?></small>
+                                            <form action="<?= url('leaves/cancel') ?>" method="POST" style="display: inline;" onsubmit="return confirm('Cancel this approved leave and refund <?= $req['total_days'] ?> day(s)?');">
                                                 <?= csrf_field() ?>
                                                 <input type="hidden" name="request_id" value="<?= $req['id'] ?>">
-                                                <input type="hidden" name="approver_remarks" value="Operational requirements">
-                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirmAction('Reject this leave request?')">
-                                                    <i class="fa-solid fa-xmark"></i> Reject
+                                                <input type="hidden" name="reason" value="Cancelled by HR/Management">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" style="padding: 3px 7px; font-size: 10.5px; font-weight: 700;" title="Cancel approved leave and restore balance">
+                                                    <i class="fa-solid fa-ban"></i> Cancel
                                                 </button>
                                             </form>
                                         </div>
                                     <?php else: ?>
-                                        <small style="color: var(--text-muted);"><?= e($req['approver_remarks'] ?: 'Actioned') ?></small>
+                                        <small style="color: var(--text-muted); font-size: 12px;"><?= e($req['approver_remarks'] ?: ucfirst($req['status'])) ?></small>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -110,6 +145,9 @@ require_once BASE_PATH . '/views/layouts/header.php';
                     </tbody>
                 </table>
             </div>
+            <?php if (isset($pagination)): ?>
+                <?= render_pagination($pagination) ?>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>

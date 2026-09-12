@@ -97,6 +97,11 @@ $isManager = (Auth::role() === 'manager');
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
+                <?php if (isset($pagination)): ?>
+                    <div style="margin-top: 16px;">
+                        <?= render_pagination($pagination) ?>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>

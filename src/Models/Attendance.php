@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/../Database.php';
+require_once __DIR__ . '/../Helpers.php';
 
 class Attendance {
     public static function getToday(int $employeeId): ?array {
@@ -21,8 +22,8 @@ class Attendance {
             return ['success' => false, 'message' => 'Already punched in today at ' . date('h:i A', strtotime($existing['punch_in']))];
         }
 
-        // Determine if late (Grace time till 09:15:00)
-        $status = (strtotime($nowTime) > strtotime('09:15:00')) ? 'late' : 'present';
+        // Determine if late (Grace time till 09:45:00)
+        $status = (strtotime($nowTime) > strtotime('09:45:00')) ? 'late' : 'present';
 
         if ($existing) {
             Database::update('attendance', [
@@ -66,8 +67,15 @@ class Attendance {
         $totalHours = round($diffSeconds / 3600, 2);
 
         $status = $existing['status'];
-        if ($totalHours < 4.5 && $status !== 'leave') {
-            $status = 'half_day';
+        if ($status !== 'leave') {
+            if ($totalHours >= 8.0) {
+                // Keep 'present' or 'late' as determined during punch in
+                $status = ($status === 'late') ? 'late' : 'present';
+            } elseif ($totalHours >= 4.5) {
+                $status = 'half_day';
+            } else {
+                $status = 'absent';
+            }
         }
 
         Database::update('attendance', [
@@ -180,7 +188,48 @@ class Attendance {
         ];
     }
 
-    public static function getAttendanceLogs(array $filters = []): array {
+    public static function countAttendanceLogs(array $filters = []): int {
+        $sql = "SELECT COUNT(*) AS total
+                FROM attendance a
+                JOIN employees e ON a.employee_id = e.id
+                WHERE 1=1";
+        $params = [];
+
+        if (!empty($filters['date'])) {
+            $sql .= " AND a.date = ?";
+            $params[] = $filters['date'];
+        } elseif (!empty($filters['month']) && !empty($filters['year'])) {
+            $sql .= " AND MONTH(a.date) = ? AND YEAR(a.date) = ?";
+            $params[] = $filters['month'];
+            $params[] = $filters['year'];
+        }
+
+        if (!empty($filters['department_id'])) {
+            $sql .= " AND e.department_id = ?";
+            $params[] = $filters['department_id'];
+        }
+
+        if (isset($filters['employee_ids'])) {
+            $empIds = array_values(array_filter(array_map('intval', (array)$filters['employee_ids'])));
+            if (!empty($empIds)) {
+                $placeholders = implode(',', array_fill(0, count($empIds), '?'));
+                $sql .= " AND a.employee_id IN ({$placeholders})";
+                $params = array_merge($params, $empIds);
+            } else {
+                $sql .= " AND 1=0";
+            }
+        }
+
+        if (!empty($filters['status'])) {
+            $sql .= " AND a.status = ?";
+            $params[] = $filters['status'];
+        }
+
+        $row = Database::fetchOne($sql, $params);
+        return (int)($row['total'] ?? 0);
+    }
+
+    public static function getAttendanceLogs(array $filters = [], ?int $limit = null, ?int $offset = null): array {
         $sql = "SELECT a.*, e.emp_code, CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
                        d.name AS department_name
                 FROM attendance a
@@ -220,6 +269,14 @@ class Attendance {
         }
 
         $sql .= " ORDER BY a.date DESC, e.emp_code ASC";
+
+        if ($limit !== null) {
+            $sql .= " LIMIT " . (int)$limit;
+            if ($offset !== null) {
+                $sql .= " OFFSET " . (int)$offset;
+            }
+        }
+
         return Database::fetchAll($sql, $params);
     }
 
@@ -236,7 +293,48 @@ class Attendance {
         ]);
     }
 
-    public static function getRegularizationRequests(?int $managerId = null, ?int $employeeId = null, array $employeeIds = []): array {
+    public static function countRegularizationRequests(?int $managerId = null, ?int $employeeId = null, array $employeeIds = []): int {
+        $sql = "SELECT COUNT(*) AS total
+                FROM attendance_regularizations ar
+                JOIN employees e ON ar.employee_id = e.id
+                LEFT JOIN departments d ON e.department_id = d.id
+                WHERE 1=1";
+        $params = [];
+
+        if ($employeeId !== null) {
+            $sql .= " AND ar.employee_id = ?";
+            $params[] = $employeeId;
+        } elseif (!empty($employeeIds)) {
+            $subIds = array_values(array_filter(array_map('intval', $employeeIds)));
+            if (!empty($subIds)) {
+                $placeholders = implode(',', array_fill(0, count($subIds), '?'));
+                if ($managerId !== null) {
+                    $sql .= " AND (ar.employee_id IN ({$placeholders}) OR ar.manager_id = ? OR e.manager_id = ?)";
+                    $params = array_merge($params, $subIds, [$managerId, $managerId]);
+                } else {
+                    $sql .= " AND ar.employee_id IN ({$placeholders})";
+                    $params = array_merge($params, $subIds);
+                }
+            } else {
+                if ($managerId !== null) {
+                    $sql .= " AND (ar.manager_id = ? OR e.manager_id = ?)";
+                    $params[] = $managerId;
+                    $params[] = $managerId;
+                } else {
+                    $sql .= " AND 1=0";
+                }
+            }
+        } elseif ($managerId !== null) {
+            $sql .= " AND (ar.manager_id = ? OR e.manager_id = ?)";
+            $params[] = $managerId;
+            $params[] = $managerId;
+        }
+
+        $res = Database::fetchOne($sql, $params);
+        return (int)($res['total'] ?? 0);
+    }
+
+    public static function getRegularizationRequests(?int $managerId = null, ?int $employeeId = null, array $employeeIds = [], ?int $limit = null, ?int $offset = null): array {
         $sql = "SELECT ar.*, e.emp_code, CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
                        d.name AS department_name
                 FROM attendance_regularizations ar
@@ -275,6 +373,14 @@ class Attendance {
         }
 
         $sql .= " ORDER BY ar.created_at DESC";
+
+        if ($limit !== null) {
+            $sql .= " LIMIT " . (int)$limit;
+            if ($offset !== null) {
+                $sql .= " OFFSET " . (int)$offset;
+            }
+        }
+
         return Database::fetchAll($sql, $params);
     }
 
@@ -411,7 +517,17 @@ class Attendance {
         for ($d = 1; $d <= $totalDays; $d++) {
             $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $d);
             $dayOfWeek = (int)date('w', strtotime($dateStr)); // 0 = Sun, 6 = Sat
-            $isWeekend = ($dayOfWeek === 0 || $dayOfWeek === 6);
+            
+            // Company policy: Sundays always off; 1st, 3rd, 5th Saturday off; 2nd & 4th Saturday working
+            $isWeekend = false;
+            $saturdayNum = null;
+            if ($dayOfWeek === 0) {
+                $isWeekend = true;
+            } elseif ($dayOfWeek === 6) {
+                $saturdayNum = (int)ceil($d / 7);
+                $isWeekend = in_array($saturdayNum, [1, 3, 5], true);
+            }
+
             $isHoliday = isset($holidayMap[$dateStr]);
             $isFuture = ($dateStr > $today);
 
@@ -425,6 +541,7 @@ class Attendance {
                 'day_char' => substr(date('D', strtotime($dateStr)), 0, 1),
                 'day_name' => date('D', strtotime($dateStr)),
                 'is_weekend' => $isWeekend,
+                'saturday_num' => $saturdayNum,
                 'is_holiday' => $isHoliday,
                 'holiday_title' => $isHoliday ? $holidayMap[$dateStr]['title'] : null,
                 'is_today' => ($dateStr === $today),
@@ -512,7 +629,13 @@ class Attendance {
                     $code = 'W';
                     $badgeClass = 'badge-weekend';
                     $weekendDays++;
-                    $tooltip = 'Weekend (' . $daysMeta[$d]['day_name'] . ')';
+                    $satNum = $daysMeta[$d]['saturday_num'] ?? null;
+                    if ($satNum !== null) {
+                        $ordinal = [1 => '1st', 2 => '2nd', 3 => '3rd', 4 => '4th', 5 => '5th'][$satNum] ?? ($satNum . 'th');
+                        $tooltip = "Week Off ({$ordinal} Saturday)";
+                    } else {
+                        $tooltip = 'Weekend (' . $daysMeta[$d]['day_name'] . ')';
+                    }
                 } elseif (!$isFuture) {
                     $code = 'A';
                     $badgeClass = 'badge-absent';

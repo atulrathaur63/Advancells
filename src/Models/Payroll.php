@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/../Database.php';
+require_once __DIR__ . '/../Helpers.php';
 
 class Payroll {
     public static function getSalaryStructure(int $employeeId): ?array {
@@ -110,7 +111,7 @@ class Payroll {
         for ($d = 1; $d <= $daysInMonth; $d++) {
             $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $d);
             $dayOfWeek = (int)date('w', strtotime($dateStr)); // 0 = Sun, 6 = Sat
-            $isWeekend = ($dayOfWeek === 0 || $dayOfWeek === 6);
+            $isWeekend = is_weekend($dateStr);
             $isHoliday = isset($holidayMap[$dateStr]);
             $isFuture = ($dateStr > $today);
 
@@ -244,7 +245,38 @@ class Payroll {
         return ['processed' => $processed, 'errors' => $errors];
     }
 
-    public static function getPayrolls(array $filters = []): array {
+    public static function countPayrolls(array $filters = []): int {
+        $sql = "SELECT count(*) AS cnt
+                FROM payrolls p
+                JOIN employees e ON p.employee_id = e.id
+                WHERE 1=1";
+        $params = [];
+
+        if (!empty($filters['employee_id'])) {
+            $sql .= " AND p.employee_id = ?";
+            $params[] = $filters['employee_id'];
+        }
+
+        if (!empty($filters['month'])) {
+            $sql .= " AND p.month = ?";
+            $params[] = $filters['month'];
+        }
+
+        if (!empty($filters['year'])) {
+            $sql .= " AND p.year = ?";
+            $params[] = $filters['year'];
+        }
+
+        if (!empty($filters['status'])) {
+            $sql .= " AND p.payment_status = ?";
+            $params[] = $filters['status'];
+        }
+
+        $row = Database::fetchOne($sql, $params);
+        return (int)($row['cnt'] ?? 0);
+    }
+
+    public static function getPayrolls(array $filters = [], ?int $limit = null, ?int $offset = null): array {
         $sql = "SELECT p.*, e.emp_code, CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
                        d.name AS department_name, des.title AS designation_title,
                        e.bank_name, e.account_number, e.pan_number, e.uan_number
@@ -276,6 +308,14 @@ class Payroll {
         }
 
         $sql .= " ORDER BY p.year DESC, p.month DESC, e.emp_code ASC";
+
+        if ($limit !== null) {
+            $sql .= " LIMIT " . (int)$limit;
+            if ($offset !== null) {
+                $sql .= " OFFSET " . (int)$offset;
+            }
+        }
+
         return Database::fetchAll($sql, $params);
     }
 

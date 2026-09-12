@@ -171,16 +171,25 @@ class PerformanceController {
         }
 
         // GET Request: Load scoped reviews and employees
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = max(1, min(100, (int)($_GET['per_page'] ?? 15)));
+
         if ($isHR) {
-            $reviews = Performance::getReviews();
+            $totalReviews = Performance::countReviews();
+            $pagination = paginate($totalReviews, $page, $perPage);
+            $reviews = Performance::getReviews(null, null, [], $pagination['limit'], $pagination['offset']);
             $employees = Employee::getAll(['status' => 'active']);
         } elseif ($isManager) {
             $subordinateIds = Employee::getSubordinateIds($empId, true);
-            $reviews = Performance::getReviews(null, $empId, $subordinateIds);
+            $totalReviews = Performance::countReviews(null, $empId, $subordinateIds);
+            $pagination = paginate($totalReviews, $page, $perPage);
+            $reviews = Performance::getReviews(null, $empId, $subordinateIds, $pagination['limit'], $pagination['offset']);
             $subordinateOnlyIds = Employee::getSubordinateIds($empId, false);
             $employees = !empty($subordinateOnlyIds) ? Employee::getAll(['employee_ids' => $subordinateOnlyIds, 'status' => 'active']) : [];
         } else {
-            $reviews = Performance::getReviews($empId);
+            $totalReviews = Performance::countReviews($empId);
+            $pagination = paginate($totalReviews, $page, $perPage);
+            $reviews = Performance::getReviews($empId, null, [], $pagination['limit'], $pagination['offset']);
             $employees = [];
         }
 

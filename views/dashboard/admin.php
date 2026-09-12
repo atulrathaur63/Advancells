@@ -3,6 +3,49 @@ $pageTitle = 'Executive Analytics Dashboard';
 require_once BASE_PATH . '/views/layouts/header.php';
 ?>
 
+<?php if (!empty($myCelebration)): ?>
+    <div class="celebrant-hero-card">
+        <div class="celebrant-hero-icon-wrap">
+            <i class="fa-solid <?= $myCelebration['type_icon'] ?>"></i>
+        </div>
+        <div class="celebrant-hero-body">
+            <div class="celebrant-hero-meta">
+                <span class="badge-celebrant">
+                    <i class="fa-solid <?= $myCelebration['type_icon'] ?>"></i> Special Day
+                </span>
+                <span class="celebrant-date-pill"><?= date('d M Y') ?></span>
+            </div>
+            <h3 class="celebrant-hero-title">
+                Happy <?= $myCelebration['type_label'] ?>, <?= e(Auth::user()['name']) ?>!
+            </h3>
+            <p class="celebrant-hero-desc">
+                The entire Advancells family celebrates your <strong><?= e($myCelebration['milestone_text']) ?></strong>.
+                <?php if ($myCelebration['wishes_count'] > 0): ?>
+                    You have received <strong><?= $myCelebration['wishes_count'] ?> greeting(s)</strong> from your teammates!
+                <?php else: ?>
+                    Wishing you inspiring leadership, good health, and continued success!
+                <?php endif; ?>
+            </p>
+        </div>
+        <div class="celebrant-hero-action">
+            <button type="button" class="btn-read-greetings" 
+                    onclick="openViewWishesModal(<?= (int)$empId ?>, '<?= e(Auth::user()['name']) ?>', '<?= $myCelebration['type'] ?>')">
+                <i class="fa-regular fa-envelope-open"></i>
+                <span>Read Greetings (<?= $myCelebration['wishes_count'] ?>)</span>
+            </button>
+        </div>
+    </div>
+<?php endif; ?>
+
+<!-- Section 1: Organization Pulse & Workforce Metrics -->
+<div class="dash-section-header">
+    <div class="dash-section-title">
+        <i class="fa-solid fa-gauge-high"></i>
+        <span>Organization Pulse & Workforce Metrics</span>
+    </div>
+    <span class="dash-section-badge">Live Company KPIs</span>
+</div>
+
 <!-- Executive KPI Tiles -->
 <div class="stats-grid">
     <!-- Tile 1: Total Workforce -->
@@ -124,8 +167,16 @@ require_once BASE_PATH . '/views/layouts/header.php';
     </div>
 </div>
 
-<!-- Analytics Grid 1: Attendance Trend & Dept Distribution -->
-<div class="grid-2" style="margin-bottom: 22px;">
+<!-- Section 2: Attendance Trends & Real-Time Presence -->
+<div class="dash-section-header">
+    <div class="dash-section-title">
+        <i class="fa-solid fa-chart-line"></i>
+        <span>Attendance Trends & Real-Time Presence</span>
+    </div>
+    <span class="dash-section-badge">Shift Analytics</span>
+</div>
+
+<div class="grid-2 grid-equal-height" style="margin-bottom: 22px;">
     <!-- Chart 1: Attendance Trend Graph -->
     <div class="card">
         <div class="card-header">
@@ -145,36 +196,7 @@ require_once BASE_PATH . '/views/layouts/header.php';
         </div>
     </div>
 
-    <!-- Chart 2: Department Headcount Donut Chart with Center Metric -->
-    <div class="card">
-        <div class="card-header">
-            <div>
-                <h3 class="card-title">
-                    <i class="fa-solid fa-chart-pie" style="color: #0284c7;"></i>
-                    Department Headcount Distribution
-                </h3>
-                <span class="card-subtitle">Workforce across <?= count($deptData) ?> divisions</span>
-            </div>
-            <span class="badge badge-purple">Donut Chart</span>
-        </div>
-        <div class="card-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-            <div class="donut-chart-wrapper">
-                <canvas id="deptDistChart"></canvas>
-                <div class="donut-center-metric">
-                    <div class="donut-center-value"><?= $stats['total'] ?></div>
-                    <div class="donut-center-label">Workforce</div>
-                </div>
-            </div>
-            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 12px; text-align: center;">
-                Clinical research, lab engineering, quality, and administrative staff
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Analytics Grid 2: Today Attendance Status & Leave Utilization -->
-<div class="grid-2" style="margin-bottom: 22px;">
-    <!-- Chart 3: Today's Status Donut Chart with Center Metric -->
+    <!-- Chart 2: Today's Status Donut Chart with Center Metric -->
     <div class="card">
         <div class="card-header">
             <div>
@@ -186,19 +208,56 @@ require_once BASE_PATH . '/views/layouts/header.php';
             </div>
             <span class="badge badge-success">Live Status</span>
         </div>
-        <div class="card-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-            <div class="donut-chart-wrapper">
+        <div class="card-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px 20px;">
+            <div class="donut-chart-wrapper" style="height: 180px;">
                 <canvas id="todayAttendancePieChart"></canvas>
                 <div class="donut-center-metric">
                     <div class="donut-center-value"><?= $attToday['attendance_rate'] ?>%</div>
                     <div class="donut-center-label">Present Rate</div>
                 </div>
             </div>
-            <div style="display: flex; gap: 14px; margin-top: 14px; font-size: 12px; flex-wrap: wrap; justify-content: center;">
+            <div style="display: flex; gap: 10px; margin-top: 14px; font-size: 11.5px; flex-wrap: wrap; justify-content: center;">
                 <span><i class="fa-solid fa-circle" style="color: #10b981; font-size: 8px;"></i> Present: <strong><?= $attToday['present'] ?></strong></span>
                 <span><i class="fa-solid fa-circle" style="color: #f59e0b; font-size: 8px;"></i> Late: <strong><?= $attToday['late'] ?></strong></span>
                 <span><i class="fa-solid fa-circle" style="color: #8b5cf6; font-size: 8px;"></i> On Leave: <strong><?= $attToday['leave'] ?></strong></span>
                 <span><i class="fa-solid fa-circle" style="color: #cbd5e1; font-size: 8px;"></i> Unlogged: <strong><?= $attToday['not_logged'] ?></strong></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Section 3: Department Analytics & Leave Utilization -->
+<div class="dash-section-header">
+    <div class="dash-section-title">
+        <i class="fa-solid fa-sitemap"></i>
+        <span>Department Analytics & Leave Policy Utilization</span>
+    </div>
+    <span class="dash-section-badge">Demographics</span>
+</div>
+
+<div class="grid-2 grid-equal-height" style="margin-bottom: 22px;">
+    <!-- Chart 3: Department Headcount Donut Chart with Center Metric -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h3 class="card-title">
+                    <i class="fa-solid fa-chart-pie" style="color: #0284c7;"></i>
+                    Department Headcount Distribution
+                </h3>
+                <span class="card-subtitle">Workforce across <?= count($deptData) ?> divisions</span>
+            </div>
+            <span class="badge badge-purple">Donut Chart</span>
+        </div>
+        <div class="card-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px 20px;">
+            <div class="donut-chart-wrapper" style="height: 180px;">
+                <canvas id="deptDistChart"></canvas>
+                <div class="donut-center-metric">
+                    <div class="donut-center-value"><?= $stats['total'] ?></div>
+                    <div class="donut-center-label">Workforce</div>
+                </div>
+            </div>
+            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 12px; text-align: center;">
+                Clinical research, lab engineering, quality, and administrative staff
             </div>
         </div>
     </div>
@@ -223,90 +282,102 @@ require_once BASE_PATH . '/views/layouts/header.php';
     </div>
 </div>
 
-<!-- Pending Approvals & Activity Logs Table -->
-<div class="grid-2">
-    <!-- Pending Leaves Table -->
+<!-- Section 4: Authorizations & Workplace Milestones -->
+<div class="dash-section-header">
+    <div class="dash-section-title">
+        <i class="fa-solid fa-clipboard-check"></i>
+        <span>Authorizations & Workplace Milestones</span>
+    </div>
+    <span class="dash-section-badge">Action Hub</span>
+</div>
+
+<div class="grid-2 grid-equal-height" style="margin-bottom: 22px;">
+    <!-- Dual Quick Authorization Hub (Leaves + Regularizations) -->
+    <?php require_once BASE_PATH . '/views/widgets/quick_authorizations.php'; ?>
+
+    <!-- Team Celebrations & Milestones Widget -->
+    <?php require_once BASE_PATH . '/views/widgets/celebrations.php'; ?>
+</div>
+
+<!-- Section 5: Official Circulars, Holidays & System Audit -->
+<div class="dash-section-header">
+    <div class="dash-section-title">
+        <i class="fa-solid fa-bullhorn"></i>
+        <span>Official Circulars, Holidays & System Audit Trail</span>
+    </div>
+    <span class="dash-section-badge">Communications & Logs</span>
+</div>
+
+<div class="grid-3 grid-equal-height" style="margin-bottom: 24px;">
+    <!-- Company Circulars Stream -->
     <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">
-                <i class="fa-solid fa-clipboard-list text-primary"></i>
-                Pending Leave Queue (<?= count($pendingLeaves) ?>)
+        <div class="card-header card-header-compact">
+            <h3 class="card-title" style="font-size: 13.5px; margin: 0;">
+                <i class="fa-solid fa-bullhorn" style="color: #f59e0b;"></i>
+                Company Circulars
             </h3>
-            <a href="<?= url('leaves/approvals') ?>" class="btn btn-sm btn-secondary">Review Portal</a>
+            <a href="<?= url('announcements') ?>" class="btn btn-sm btn-secondary" style="font-size: 11.5px; padding: 4px 10px;">Manage</a>
         </div>
-        <div class="card-body" style="padding: 0;">
-            <?php if (empty($pendingLeaves)): ?>
-                <div style="padding: 36px 20px; text-align: center; color: var(--text-muted);">
-                    <i class="fa-solid fa-circle-check" style="font-size: 28px; color: #10b981; margin-bottom: 8px;"></i>
-                    <p style="font-size: 13px;">All leave applications have been reviewed!</p>
+        <div class="card-body" style="padding: 12px 16px;">
+            <?php if (empty($announcements)): ?>
+                <div class="dash-empty-scroll-box" style="height: 250px;">
+                    <i class="fa-solid fa-bullhorn" style="font-size: 26px; color: #cbd5e1; margin-bottom: 6px; display: block;"></i>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 0;">No circulars posted.</p>
                 </div>
             <?php else: ?>
-                <div class="table-responsive">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Applicant</th>
-                                <th>Policy</th>
-                                <th>Dates</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach (array_slice($pendingLeaves, 0, 5) as $l): ?>
-                                <tr>
-                                    <td>
-                                        <div style="display: flex; align-items: center; gap: 10px;">
-                                            <div style="width: 32px; height: 32px; border-radius: var(--radius-full); background: linear-gradient(135deg, #93206c, #0284c7); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px;">
-                                                <?= strtoupper(substr($l['employee_name'], 0, 1)) ?>
-                                            </div>
-                                            <div>
-                                                <strong><?= e($l['employee_name']) ?></strong><br>
-                                                <small style="color:var(--text-muted);"><?= e($l['emp_code']) ?> • <?= e($l['department_name']) ?></small>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td><span class="badge badge-purple"><?= e($l['leave_type_code']) ?></span></td>
-                                    <td>
-                                        <?= format_date($l['from_date'], 'd M') ?> - <?= format_date($l['to_date'], 'd M') ?><br>
-                                        <small><strong><?= $l['total_days'] ?> day(s)</strong></small>
-                                    </td>
-                                    <td>
-                                        <a href="<?= url('leaves/approvals') ?>" class="btn btn-sm btn-primary">Review</a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                <div class="dash-stream-scroll-wrap" style="height: 250px; max-height: 250px;">
+                    <div class="announcement-stream-list">
+                        <?php foreach ($announcements as $ann): ?>
+                            <div class="announcement-stream-item">
+                                <div class="announcement-stream-header">
+                                    <span class="announcement-stream-title"><?= e($ann['title']) ?></span>
+                                    <?= status_badge($ann['priority']) ?>
+                                </div>
+                                <p class="announcement-stream-body"><?= nl2br(e(substr($ann['content'], 0, 95))) ?>...</p>
+                                <div class="announcement-stream-footer">
+                                    <span><i class="fa-solid fa-user-pen"></i> <?= e($ann['author_name']) ?></span>
+                                    <span><i class="fa-regular fa-clock"></i> <?= format_date($ann['created_at']) ?></span>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
     </div>
 
-    <!-- Company Circulars Stream -->
+    <!-- Upcoming Holidays Widget -->
+    <?php require_once BASE_PATH . '/views/widgets/holidays.php'; ?>
+
+    <!-- Recent System Activity Logs -->
     <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">
-                <i class="fa-solid fa-bullhorn" style="color: #f59e0b;"></i>
-                Company Circulars & Notices
+        <div class="card-header card-header-compact">
+            <h3 class="card-title" style="font-size: 13.5px; margin: 0;">
+                <i class="fa-solid fa-clock-rotate-left" style="color: #6366f1;"></i>
+                Recent Activity
             </h3>
-            <a href="<?= url('announcements') ?>" class="btn btn-sm btn-secondary">Manage</a>
+            <span class="badge badge-secondary" style="font-size: 11px;">Audit Trail</span>
         </div>
-        <div class="card-body">
-            <?php if (empty($announcements)): ?>
-                <div style="padding: 24px; text-align: center; color: var(--text-muted);">
-                    No circulars posted.
+        <div class="card-body" style="padding: 12px 16px;">
+            <?php if (empty($recentActivities)): ?>
+                <div class="dash-empty-scroll-box" style="height: 250px;">
+                    <i class="fa-solid fa-clock-rotate-left" style="font-size: 26px; color: #cbd5e1; margin-bottom: 6px; display: block;"></i>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 0;">No recent system logs.</p>
                 </div>
             <?php else: ?>
-                <?php foreach (array_slice($announcements, 0, 3) as $ann): ?>
-                    <div style="padding: 14px 16px; background: #f8fafc; border-radius: var(--radius-md); border-left: 4px solid var(--primary); margin-bottom: 12px; box-shadow: var(--shadow-xs);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                            <strong style="font-size: 14px; color: var(--text-main);"><?= e($ann['title']) ?></strong>
-                            <?= status_badge($ann['priority']) ?>
-                        </div>
-                        <p style="font-size: 13px; color: #475569; margin-bottom: 6px; line-height: 1.5;"><?= nl2br(e(substr($ann['content'], 0, 130))) ?>...</p>
-                        <small style="font-size: 11px; color: var(--text-light);"><i class="fa-regular fa-clock"></i> Posted on <?= format_date($ann['created_at']) ?> by <?= e($ann['author_name']) ?></small>
+                <div class="dash-stream-scroll-wrap" style="height: 250px; max-height: 250px;">
+                    <div class="activity-audit-list">
+                        <?php foreach ($recentActivities as $act): ?>
+                            <div class="activity-audit-item">
+                                <div style="min-width: 0;">
+                                    <span class="activity-audit-user"><?= e($act['user_name'] ?? 'System') ?></span>
+                                    <span class="activity-audit-action">: <?= e($act['action'] ?? '') ?></span>
+                                </div>
+                                <span class="activity-audit-time"><i class="fa-regular fa-clock"></i> <?= format_time($act['created_at']) ?></span>
+                            </div>
+                        <?php endforeach; ?>
                     </div>
-                <?php endforeach; ?>
+                </div>
             <?php endif; ?>
         </div>
     </div>
@@ -328,13 +399,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const trendCanvas = document.getElementById('attendanceTrendChart');
     if (trendCanvas) {
         const ctx = trendCanvas.getContext('2d');
-        const gradMagenta = ctx.createLinearGradient(0, 0, 0, 220);
-        gradMagenta.addColorStop(0, 'rgba(147, 32, 108, 0.22)');
-        gradMagenta.addColorStop(1, 'rgba(147, 32, 108, 0.0)');
+        const gradPlum = ctx.createLinearGradient(0, 0, 0, 220);
+        gradPlum.addColorStop(0, 'rgba(164, 36, 122, 0.28)');
+        gradPlum.addColorStop(1, 'rgba(164, 36, 122, 0.0)');
 
-        const gradTeal = ctx.createLinearGradient(0, 0, 0, 220);
-        gradTeal.addColorStop(0, 'rgba(2, 132, 199, 0.15)');
-        gradTeal.addColorStop(1, 'rgba(2, 132, 199, 0.0)');
+        const gradCyan = ctx.createLinearGradient(0, 0, 0, 220);
+        gradCyan.addColorStop(0, 'rgba(38, 159, 200, 0.22)');
+        gradCyan.addColorStop(1, 'rgba(38, 159, 200, 0.0)');
 
         new Chart(trendCanvas, {
             type: 'line',
@@ -344,12 +415,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     {
                         label: 'Present Staff',
                         data: <?= json_encode(array_column($trendDays, 'present')) ?>,
-                        borderColor: '#93206c',
-                        backgroundColor: gradMagenta,
+                        borderColor: '#a4247a',
+                        backgroundColor: gradPlum,
                         borderWidth: 2.5,
                         fill: true,
                         tension: 0.38,
-                        pointBackgroundColor: '#93206c',
+                        pointBackgroundColor: '#a4247a',
                         pointBorderColor: '#ffffff',
                         pointBorderWidth: 2,
                         pointRadius: 4,
@@ -358,12 +429,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     {
                         label: 'On Leave',
                         data: <?= json_encode(array_column($trendDays, 'leave')) ?>,
-                        borderColor: '#0284c7',
-                        backgroundColor: gradTeal,
+                        borderColor: '#269fc8',
+                        backgroundColor: gradCyan,
                         borderWidth: 2,
                         fill: true,
                         tension: 0.38,
-                        pointBackgroundColor: '#0284c7',
+                        pointBackgroundColor: '#269fc8',
                         pointBorderColor: '#ffffff',
                         pointBorderWidth: 2,
                         pointRadius: 3
@@ -400,7 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 labels: <?= json_encode(array_column($deptData, 'name')) ?>,
                 datasets: [{
                     data: <?= json_encode(array_column($deptData, 'count')) ?>,
-                    backgroundColor: ['#93206c', '#0284c7', '#0d9488', '#10b981', '#f59e0b', '#7c3aed', '#64748b'],
+                    backgroundColor: ['#a4247a', '#269fc8', '#5aa89f', '#10b981', '#f59e0b', '#7c3aed', '#64748b'],
                     borderWidth: 3,
                     borderColor: '#ffffff',
                     hoverOffset: 4
@@ -426,7 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 labels: ['Present On-Time', 'Late Entry', 'On Leave', 'Unlogged'],
                 datasets: [{
                     data: [<?= $attToday['present'] ?>, <?= $attToday['late'] ?>, <?= $attToday['leave'] ?>, <?= $attToday['not_logged'] ?>],
-                    backgroundColor: ['#10b981', '#f59e0b', '#8b5cf6', '#e2e8f0'],
+                    backgroundColor: ['#5aa89f', '#f59e0b', '#a4247a', '#e2e8f0'],
                     borderWidth: 3,
                     borderColor: '#ffffff',
                     hoverOffset: 4
@@ -453,7 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 datasets: [{
                     label: 'Days Taken (<?= date('Y') ?>)',
                     data: <?= json_encode(array_column($leaveTypeDist, 'used')) ?>,
-                    backgroundColor: ['#0d9488', '#e11d48', '#0284c7', '#8b5cf6', '#64748b'],
+                    backgroundColor: ['#5aa89f', '#e11d48', '#269fc8', '#a4247a', '#64748b'],
                     borderRadius: 6,
                     maxBarThickness: 45
                 }]

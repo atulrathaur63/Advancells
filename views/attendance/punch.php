@@ -81,8 +81,8 @@ require_once BASE_PATH . '/views/layouts/header.php';
         </div>
         <div class="card-body">
             <ul style="padding-left: 20px; color: var(--text-muted); font-size: 13.5px; line-height: 1.8;">
-                <li>Standard workday timing is <strong>09:00 AM to 06:00 PM</strong>.</li>
-                <li>Grace arrival time is permitted until <strong>09:15 AM</strong>. Logins after 09:15 AM are marked as <em>Late</em>.</li>
+                <li>Standard workday timing is <strong>09:30 AM to 06:30 PM</strong>.</li>
+                <li>Grace arrival time is permitted until <strong>09:45 AM</strong>. Logins after 09:45 AM are marked as <em>Late</em>.</li>
                 <li>Working under 4.5 hours is automatically classified as a <em>Half-Day</em>.</li>
                 <li>Forgot to punch? You can apply for a punch regularization in the <a href="<?= url('attendance/regularize') ?>" style="color: var(--primary); font-weight: 700;">Regularization portal</a>.</li>
             </ul>

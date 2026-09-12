@@ -398,8 +398,18 @@ $monthNames = [
                     if ($meta['is_today']) $thClass = 'th-today';
                     elseif ($meta['is_holiday']) $thClass = 'th-holiday';
                     elseif ($meta['is_weekend']) $thClass = 'th-weekend';
+
+                    $dayTitle = $meta['date'] . ' (' . $meta['day_name'];
+                    if (!empty($meta['saturday_num'])) {
+                        $ordinal = [1 => '1st', 2 => '2nd', 3 => '3rd', 4 => '4th', 5 => '5th'][$meta['saturday_num']] ?? ($meta['saturday_num'] . 'th');
+                        $dayTitle .= ' - ' . $ordinal . ' Sat' . ($meta['is_weekend'] ? ' [Off]' : ' [Working]');
+                    }
+                    $dayTitle .= ')';
+                    if ($meta['holiday_title']) {
+                        $dayTitle .= ' - ' . e($meta['holiday_title']);
+                    }
                 ?>
-                    <th class="matrix-day-th <?= $thClass ?>" title="<?= $meta['date'] ?> (<?= $meta['day_name'] ?>)<?= $meta['holiday_title'] ? ' - ' . e($meta['holiday_title']) : '' ?>">
+                    <th class="matrix-day-th <?= $thClass ?>" title="<?= e($dayTitle) ?>">
                         <span class="matrix-day-num"><?= sprintf('%02d', $d) ?></span>
                         <span class="matrix-day-name"><?= $meta['day_char'] ?></span>
                     </th>
@@ -427,7 +437,7 @@ $monthNames = [
                     $emp = $row['employee'];
                     $st = $row['stats'];
                     $fullName = trim(($emp['first_name'] ?? '') . ' ' . ($emp['last_name'] ?? ''));
-                    $avatar = $emp['avatar'] ? url('uploads/avatars/' . $emp['avatar']) : 'https://ui-avatars.com/api/?name=' . urlencode($fullName) . '&background=fdf2f8&color=93206c&bold=true';
+                    $avatar = !empty($emp['avatar']) ? url($emp['avatar']) : 'https://ui-avatars.com/api/?name=' . urlencode($fullName) . '&background=fdf2f8&color=93206c&bold=true';
                 ?>
                     <tr>
                         <td class="col-sticky-emp">
@@ -503,7 +513,7 @@ $monthNames = [
         <span class="m-badge badge-holiday">H</span> Gazetted Holiday (1.0)
     </div>
     <div class="legend-item">
-        <span class="m-badge badge-weekend">W</span> Weekend (1.0)
+        <span class="m-badge badge-weekend">W</span> Week Off (1, 3, 5 Sat &amp; Sun)
     </div>
     <div class="legend-item">
         <span class="m-badge badge-absent">A</span> Absent (0.0)

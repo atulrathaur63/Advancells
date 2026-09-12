@@ -3,6 +3,49 @@ $pageTitle = 'Manager Portal & Team Oversight';
 require_once BASE_PATH . '/views/layouts/header.php';
 ?>
 
+<?php if (!empty($myCelebration)): ?>
+    <div class="celebrant-hero-card">
+        <div class="celebrant-hero-icon-wrap">
+            <i class="fa-solid <?= $myCelebration['type_icon'] ?>"></i>
+        </div>
+        <div class="celebrant-hero-body">
+            <div class="celebrant-hero-meta">
+                <span class="badge-celebrant">
+                    <i class="fa-solid <?= $myCelebration['type_icon'] ?>"></i> Special Day
+                </span>
+                <span class="celebrant-date-pill"><?= date('d M Y') ?></span>
+            </div>
+            <h3 class="celebrant-hero-title">
+                Happy <?= $myCelebration['type_label'] ?>, <?= e(Auth::user()['name']) ?>!
+            </h3>
+            <p class="celebrant-hero-desc">
+                The entire Advancells family celebrates your <strong><?= e($myCelebration['milestone_text']) ?></strong>.
+                <?php if ($myCelebration['wishes_count'] > 0): ?>
+                    You have received <strong><?= $myCelebration['wishes_count'] ?> greeting(s)</strong> from your teammates!
+                <?php else: ?>
+                    Wishing you inspiring leadership, good health, and continued success!
+                <?php endif; ?>
+            </p>
+        </div>
+        <div class="celebrant-hero-action">
+            <button type="button" class="btn-read-greetings" 
+                    onclick="openViewWishesModal(<?= (int)$empId ?>, '<?= e(Auth::user()['name']) ?>', '<?= $myCelebration['type'] ?>')">
+                <i class="fa-regular fa-envelope-open"></i>
+                <span>Read Greetings (<?= $myCelebration['wishes_count'] ?>)</span>
+            </button>
+        </div>
+    </div>
+<?php endif; ?>
+
+<!-- Section 1: Team Oversight & Direct Reportees -->
+<div class="dash-section-header">
+    <div class="dash-section-title">
+        <i class="fa-solid fa-users-viewfinder"></i>
+        <span>Team Oversight & Direct Reportees</span>
+    </div>
+    <span class="dash-section-badge">Management Pulse</span>
+</div>
+
 <!-- Manager Executive KPI Grid -->
 <div class="stats-grid">
     <div class="stat-card">
@@ -71,15 +114,23 @@ require_once BASE_PATH . '/views/layouts/header.php';
     </div>
 </div>
 
-<!-- Manager Analytics & Executive Approvals Row -->
-<div class="grid-2" style="margin-bottom: 24px;">
+<!-- Section 2: Team Attendance & Shift Coverage Radar -->
+<div class="dash-section-header">
+    <div class="dash-section-title">
+        <i class="fa-solid fa-gauge-high"></i>
+        <span>Team Attendance & Shift Coverage Operations</span>
+    </div>
+    <span class="dash-section-badge">Shift Operations</span>
+</div>
+
+<div class="grid-2 grid-equal-height" style="margin-bottom: 22px;">
     <!-- Team Attendance Status Donut Chart with Center Metric -->
     <div class="card">
         <div class="card-header">
             <div>
                 <h3 class="card-title">
                     <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i>
-                    Team Attendance Status
+                    Team Attendance Status Today
                 </h3>
                 <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
                     Shift presence distribution for <?= date('d M Y') ?>
@@ -87,83 +138,152 @@ require_once BASE_PATH . '/views/layouts/header.php';
             </div>
             <span class="badge badge-info">Today</span>
         </div>
-        <div class="card-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 20px;">
-            <div class="donut-chart-wrapper" style="max-width: 220px; width: 100%; height: 190px;">
+        <div class="card-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 22px 20px;">
+            <div class="donut-chart-wrapper" style="max-width: 220px; width: 100%; height: 180px;">
                 <canvas id="teamAttPieChart"></canvas>
                 <div class="donut-center-metric">
                     <span class="metric-number"><?= ($teamPresent + $teamLate) ?>/<?= $teamCount ?></span>
                     <span class="metric-label">Checked In</span>
                 </div>
             </div>
-            <div style="display: flex; gap: 8px; margin-top: 18px; font-size: 11.5px; flex-wrap: wrap; justify-content: center;">
+            <div style="display: flex; gap: 8px; margin-top: 16px; font-size: 11.5px; flex-wrap: wrap; justify-content: center;">
                 <span class="badge badge-success" style="font-weight: 500;"><i class="fa-solid fa-circle" style="font-size: 6px; margin-right: 4px;"></i> Present: <?= $teamPresent ?></span>
                 <span class="badge badge-warning" style="font-weight: 500;"><i class="fa-solid fa-circle" style="font-size: 6px; margin-right: 4px;"></i> Late: <?= $teamLate ?></span>
-                <span class="badge badge-purple" style="font-weight: 500;"><i class="fa-solid fa-circle" style="font-size: 6px; margin-right: 4px;"></i> On Leave: <?= $teamLeave ?></span>
+                <span class="badge badge-magenta" style="font-weight: 500;"><i class="fa-solid fa-circle" style="font-size: 6px; margin-right: 4px;"></i> On Leave: <?= $teamLeave ?></span>
                 <span class="badge badge-secondary" style="font-weight: 500;"><i class="fa-solid fa-circle" style="font-size: 6px; margin-right: 4px;"></i> Pending: <?= $teamPending ?></span>
             </div>
         </div>
     </div>
 
-    <!-- Manager Approvals & Leadership Console -->
+    <!-- 7-Day Team Availability & Coverage Radar Card -->
     <div class="card">
         <div class="card-header">
             <div>
                 <h3 class="card-title">
-                    <i class="fa-solid fa-bolt" style="color: var(--primary);"></i>
-                    Manager Approvals & Actions
+                    <i class="fa-solid fa-calendar-week" style="color: var(--primary);"></i>
+                    7-Day Team Coverage Radar
                 </h3>
                 <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
-                    Pending authorization queue for direct reportees
+                    Forecasted reportee availability & scheduled leaves
                 </div>
             </div>
-            <span class="badge badge-purple">Executive Console</span>
+            <span class="badge badge-teal">Workforce Radar</span>
         </div>
-        <div class="card-body" style="display: flex; flex-direction: column; justify-content: space-between; padding: 24px;">
-            <div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px;">
-                    <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 16px;">
-                        <div style="font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 4px;">
-                            Leave Approvals
+        <div class="card-body" style="display: flex; flex-direction: column; justify-content: space-between; padding: 18px 20px;">
+            <div class="team-radar-grid">
+                <?php foreach ($teamCoverage7Days as $day): 
+                    $covClass = $day['coverage_percent'] >= 100 ? 'full' : ($day['coverage_percent'] >= 60 ? 'partial' : 'low');
+                ?>
+                    <div class="radar-day-card <?= $day['is_today'] ? 'is-today' : '' ?>">
+                        <?php if ($day['is_today']): ?>
+                            <span class="radar-today-flag">Today</span>
+                        <?php endif; ?>
+                        <span class="radar-day-name"><?= $day['day_name'] ?></span>
+                        <span class="radar-day-date"><?= $day['display_date'] ?></span>
+                        <div class="radar-gauge-wrap <?= $covClass ?>">
+                            <?= $day['coverage_percent'] ?>%
                         </div>
-                        <div style="display: flex; align-items: baseline; gap: 8px;">
-                            <span style="font-size: 24px; font-weight: 700; color: var(--text-main);"><?= count($pendingLeaves) ?></span>
-                            <span style="font-size: 12px; color: <?= count($pendingLeaves) > 0 ? '#e11d48' : '#059669' ?>; font-weight: 600;">
-                                <?= count($pendingLeaves) > 0 ? 'Action required' : 'All clear' ?>
-                            </span>
-                        </div>
+                        <span class="radar-day-status <?= $covClass ?>">
+                            <?= $day['available_count'] ?>/<?= $teamCount ?><br>Active
+                        </span>
                     </div>
+                <?php endforeach; ?>
+            </div>
 
-                    <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 16px;">
-                        <div style="font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 4px;">
-                            Regularizations
-                        </div>
-                        <div style="display: flex; align-items: baseline; gap: 8px;">
-                            <span style="font-size: 24px; font-weight: 700; color: var(--text-main);"><?= $pendingRegsCount ?></span>
-                            <span style="font-size: 12px; color: <?= $pendingRegsCount > 0 ? '#d97706' : '#059669' ?>; font-weight: 600;">
-                                <?= $pendingRegsCount > 0 ? 'Pending review' : 'Up to date' ?>
-                            </span>
-                        </div>
+            <?php if ($totalScheduledLeavesCount > 0): ?>
+                <div class="radar-summary-strip alert">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 15px; color: #d97706; flex-shrink: 0;"></i>
+                    <div style="line-height: 1.4;">
+                        <strong>Staffing Notice:</strong> <?= $totalScheduledLeavesCount ?> scheduled leave instance(s) detected across your direct reportees over the next 7 days.
                     </div>
                 </div>
-
-                <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px;">
-                    Review team attendance adjustments and leave requests to maintain schedule transparency, compliance, and payroll readiness.
-                </p>
-            </div>
-
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <a href="<?= url('leaves/approvals') ?>" class="btn btn-primary">
-                    <i class="fa-solid fa-clipboard-check"></i> Review Leaves (<?= count($pendingLeaves) ?>)
-                </a>
-                <a href="<?= url('attendance/regularize-approvals') ?>" class="btn btn-secondary">
-                    <i class="fa-solid fa-clock-rotate-left"></i> Regularizations (<?= $pendingRegsCount ?>)
-                </a>
-                <a href="<?= url('attendance/punch') ?>" class="btn btn-secondary">
-                    <i class="fa-solid fa-fingerprint"></i> My Punch
-                </a>
-            </div>
+            <?php else: ?>
+                <div class="radar-summary-strip good">
+                    <i class="fa-solid fa-circle-check" style="font-size: 15px; color: #16a34a; flex-shrink: 0;"></i>
+                    <div style="line-height: 1.4;">
+                        <strong>Full Workforce Coverage:</strong> 100% team capacity expected across the upcoming 7 days.
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
+</div>
+
+<!-- Section 3: Fast-Track Authorizations & Team Celebrations -->
+<div class="dash-section-header">
+    <div class="dash-section-title">
+        <i class="fa-solid fa-bolt"></i>
+        <span>Fast-Track Authorizations & Workplace Celebrations</span>
+    </div>
+    <span class="dash-section-badge">1-Click Fast Track</span>
+</div>
+
+<div class="grid-2 grid-equal-height" style="margin-bottom: 22px;">
+    <!-- Dual Quick Authorization Hub Widget for Direct Reportees -->
+    <?php require_once BASE_PATH . '/views/widgets/quick_authorizations.php'; ?>
+
+    <!-- Team Celebrations & Milestones Widget -->
+    <?php require_once BASE_PATH . '/views/widgets/celebrations.php'; ?>
+</div>
+
+<!-- Section 4: Public Holidays & Company Circulars -->
+<div class="dash-section-header">
+    <div class="dash-section-title">
+        <i class="fa-solid fa-bullhorn"></i>
+        <span>Company Circulars & Upcoming Holidays</span>
+    </div>
+    <span class="dash-section-badge">Advancells Organization</span>
+</div>
+
+<div class="grid-2 grid-equal-height" style="margin-bottom: 22px;">
+    <!-- Company Circulars Stream -->
+    <div class="card">
+        <div class="card-header card-header-compact">
+            <h3 class="card-title" style="font-size: 13.5px; margin: 0;">
+                <i class="fa-solid fa-bullhorn" style="color: #f59e0b;"></i>
+                Company Circulars & Notices
+            </h3>
+            <span class="badge badge-secondary"><?= count($announcements) ?> Total</span>
+        </div>
+        <div class="card-body" style="padding: 12px 16px;">
+            <?php if (empty($announcements)): ?>
+                <div class="dash-empty-scroll-box" style="height: 330px;">
+                    <i class="fa-solid fa-bullhorn" style="font-size: 26px; color: #cbd5e1; margin-bottom: 6px; display: block;"></i>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 0;">No circulars posted.</p>
+                </div>
+            <?php else: ?>
+                <div class="dash-stream-scroll-wrap">
+                    <div class="announcement-stream-list">
+                        <?php foreach ($announcements as $ann): ?>
+                            <div class="announcement-stream-item">
+                                <div class="announcement-stream-header">
+                                    <span class="announcement-stream-title"><?= e($ann['title']) ?></span>
+                                    <?= status_badge($ann['priority']) ?>
+                                </div>
+                                <p class="announcement-stream-body"><?= nl2br(e(substr($ann['content'], 0, 110))) ?>...</p>
+                                <div class="announcement-stream-footer">
+                                    <span><i class="fa-solid fa-user-pen"></i> <?= e($ann['author_name']) ?></span>
+                                    <span><i class="fa-regular fa-clock"></i> <?= format_date($ann['created_at']) ?></span>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Upcoming Public Holidays Widget -->
+    <?php require_once BASE_PATH . '/views/widgets/holidays.php'; ?>
+</div>
+
+<!-- Section 5: Team Daily Attendance Roster -->
+<div class="dash-section-header">
+    <div class="dash-section-title">
+        <i class="fa-solid fa-clipboard-user"></i>
+        <span>Team Daily Attendance Roster</span>
+    </div>
+    <span class="dash-section-badge"><?= date('d M Y') ?></span>
 </div>
 
 <!-- Team Attendance Status Today Table -->
@@ -237,7 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 labels: ['Present On-Time', 'Late Entry', 'On Leave', 'Pending Entry'],
                 datasets: [{
                     data: [<?= (int)$teamPresent ?>, <?= (int)$teamLate ?>, <?= (int)$teamLeave ?>, <?= (int)$teamPending ?>],
-                    backgroundColor: ['#10b981', '#f59e0b', '#8b5cf6', '#e2e8f0'],
+                    backgroundColor: ['#5aa89f', '#f59e0b', '#a4247a', '#e2e8f0'],
                     borderWidth: 2,
                     borderColor: '#ffffff',
                     hoverOffset: 3

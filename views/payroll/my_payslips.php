@@ -55,6 +55,9 @@ require_once BASE_PATH . '/views/layouts/header.php';
                     </tbody>
                 </table>
             </div>
+            <?php if (isset($pagination)): ?>
+                <?= render_pagination($pagination) ?>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>

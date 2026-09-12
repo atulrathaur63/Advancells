@@ -23,11 +23,11 @@ require_once BASE_PATH . '/views/layouts/header.php';
                             </h3>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <?php if (($ann['target_role'] ?? 'all') === 'manager'): ?>
-                                    <span class="badge" style="background: #e0e7ff; color: #3730a3; font-size: 11px;"><i class="fa-solid fa-user-tie"></i> Managers</span>
+                                    <span class="badge badge-magenta" style="font-size: 11px;"><i class="fa-solid fa-user-tie"></i> Managers</span>
                                 <?php elseif (($ann['target_role'] ?? 'all') === 'employee'): ?>
-                                    <span class="badge" style="background: #fef3c7; color: #92400e; font-size: 11px;"><i class="fa-solid fa-users"></i> Staff</span>
+                                    <span class="badge badge-cyan" style="font-size: 11px;"><i class="fa-solid fa-users"></i> Staff</span>
                                 <?php else: ?>
-                                    <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 11px;"><i class="fa-solid fa-globe"></i> Everyone</span>
+                                    <span class="badge badge-teal" style="font-size: 11px;"><i class="fa-solid fa-globe"></i> Everyone</span>
                                 <?php endif; ?>
                                 <?= status_badge($ann['priority']) ?>
                                 <?php if (Auth::isHR()): ?>
@@ -53,6 +53,11 @@ require_once BASE_PATH . '/views/layouts/header.php';
                         </div>
                     </div>
                 <?php endforeach; ?>
+                <?php if (isset($pagination)): ?>
+                    <div style="margin-top: 16px;">
+                        <?= render_pagination($pagination) ?>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>

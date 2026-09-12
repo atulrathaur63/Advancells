@@ -10,7 +10,20 @@ class Auth {
     private static ?array $cachedUser = null;
 
     public static function check(): bool {
-        return !empty($_SESSION['user_id']);
+        if (empty($_SESSION['user_id'])) {
+            return false;
+        }
+
+        // Session idle timeout check (default: 30 minutes / 1800 seconds)
+        $timeout = defined('SESSION_IDLE_TIMEOUT') ? SESSION_IDLE_TIMEOUT : 1800;
+        if (isset($_SESSION['last_activity']) && (time() - (int)$_SESSION['last_activity'] > $timeout)) {
+            self::logout();
+            flash('warning', 'Your session expired due to inactivity. Please log in again.');
+            return false;
+        }
+
+        $_SESSION['last_activity'] = time();
+        return true;
     }
 
     public static function id(): ?int {
@@ -57,6 +70,7 @@ class Auth {
             $_SESSION['user_name'] = $user['name'];
             $_SESSION['user_email'] = $user['email'];
             $_SESSION['user_role'] = $user['role'];
+            $_SESSION['last_activity'] = time();
             self::$cachedUser = null; // reset cache
 
             Database::logActivity($user['id'], 'LOGIN', 'AUTH', 'User logged in successfully');
@@ -66,8 +80,9 @@ class Auth {
     }
 
     public static function logout(): void {
-        if (self::check()) {
-            Database::logActivity(self::id(), 'LOGOUT', 'AUTH', 'User logged out');
+        $userId = $_SESSION['user_id'] ?? null;
+        if ($userId) {
+            Database::logActivity((int)$userId, 'LOGOUT', 'AUTH', 'User logged out');
         }
         $_SESSION = [];
         if (ini_get("session.use_cookies") && !headers_sent()) {

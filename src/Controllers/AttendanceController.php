@@ -80,6 +80,9 @@ class AttendanceController {
             $reason = trim($_POST['reason'] ?? '');
 
             if (empty($date) || empty($inTime) || empty($outTime) || empty($reason)) {
+                if (is_ajax()) {
+                    json_response(['success' => false, 'message' => 'Please fill in all fields including date, in/out times, and reason.'], 422);
+                }
                 flash('danger', 'Please fill in all fields including date, in/out times, and reason.');
                 redirect('attendance/regularize');
             }
@@ -91,11 +94,19 @@ class AttendanceController {
                     Notification::send((int)$mgr['user_id'], 'attendance', 'Regularization Request', "{$user['name']} requested attendance regularization for {$date}", 'attendance/regularize-approvals', 'fa-clock-rotate-left', '#0284c7');
                 }
             }
+            if (is_ajax()) {
+                json_response(['success' => true, 'message' => 'Attendance regularization request submitted for manager approval!']);
+            }
             flash('success', 'Attendance regularization request submitted for manager approval!');
             redirect('attendance/my_attendance');
         }
 
-        $regularizations = Attendance::getRegularizationRequests(null, $empId);
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = max(1, min(100, (int)($_GET['per_page'] ?? 10)));
+        $totalRegularizations = Attendance::countRegularizationRequests(null, $empId);
+        $pagination = paginate($totalRegularizations, $page, $perPage);
+        $regularizations = Attendance::getRegularizationRequests(null, $empId, [], $pagination['limit'], $pagination['offset']);
+
         require_once BASE_PATH . '/views/attendance/regularize.php';
     }
 
@@ -106,7 +117,13 @@ class AttendanceController {
 
         $managerId = ($role === 'manager') ? $empId : null;
         $subordinateIds = ($role === 'manager') ? Employee::getSubordinateIds((int)$empId, false) : [];
-        $requests = Attendance::getRegularizationRequests($managerId, null, $subordinateIds);
+
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = max(1, min(100, (int)($_GET['per_page'] ?? 15)));
+
+        $totalRequests = Attendance::countRegularizationRequests($managerId, null, $subordinateIds);
+        $pagination = paginate($totalRequests, $page, $perPage);
+        $requests = Attendance::getRegularizationRequests($managerId, null, $subordinateIds, $pagination['limit'], $pagination['offset']);
 
         require_once BASE_PATH . '/views/attendance/regularize_approvals.php';
     }
@@ -120,12 +137,27 @@ class AttendanceController {
 
             $regReq = Database::fetchOne("SELECT r.*, e.user_id, e.first_name FROM attendance_regularizations r JOIN employees e ON r.employee_id = e.id WHERE r.id = ?", [$id]);
             if (!$regReq) {
+                if (is_ajax()) {
+                    json_response(['success' => false, 'message' => 'Regularization request not found.'], 404);
+                }
                 flash('danger', 'Regularization request not found.');
+                redirect('attendance/regularize-approvals');
+            }
+
+            // Prevent self-approval of attendance regularization
+            if ($approverEmpId > 0 && (int)$regReq['employee_id'] === $approverEmpId && Auth::role() !== 'super_admin') {
+                if (is_ajax()) {
+                    json_response(['success' => false, 'message' => 'Unauthorized! You cannot approve your own attendance regularization. It must be approved by your reporting manager or Super Admin.'], 403);
+                }
+                flash('danger', 'Unauthorized! You cannot approve your own attendance regularization. It must be approved by your reporting manager or Super Admin.');
                 redirect('attendance/regularize-approvals');
             }
 
             if (Auth::role() === 'manager') {
                 if ((int)$regReq['manager_id'] !== $approverEmpId && !Employee::isSubordinateOf((int)$regReq['employee_id'], $approverEmpId)) {
+                    if (is_ajax()) {
+                        json_response(['success' => false, 'message' => 'Unauthorized! You can only approve attendance regularizations for your own team members.'], 403);
+                    }
                     flash('danger', 'Unauthorized! You can only approve attendance regularizations for your own team members.');
                     redirect('attendance/regularize-approvals');
                 }
@@ -135,8 +167,14 @@ class AttendanceController {
                 if ($regReq && !empty($regReq['user_id'])) {
                     Notification::send((int)$regReq['user_id'], 'attendance', 'Regularization Approved', "Your regularization request for {$regReq['date']} was approved.", 'attendance/my-attendance', 'fa-clock-rotate-left', '#16a34a');
                 }
+                if (is_ajax()) {
+                    json_response(['success' => true, 'message' => 'Attendance regularization approved successfully!']);
+                }
                 flash('success', 'Attendance regularization approved successfully!');
             } else {
+                if (is_ajax()) {
+                    json_response(['success' => false, 'message' => 'Could not approve regularization request.'], 500);
+                }
                 flash('danger', 'Could not approve regularization request.');
             }
         }
@@ -152,12 +190,27 @@ class AttendanceController {
 
             $regReq = Database::fetchOne("SELECT r.*, e.user_id, e.first_name FROM attendance_regularizations r JOIN employees e ON r.employee_id = e.id WHERE r.id = ?", [$id]);
             if (!$regReq) {
+                if (is_ajax()) {
+                    json_response(['success' => false, 'message' => 'Regularization request not found.'], 404);
+                }
                 flash('danger', 'Regularization request not found.');
+                redirect('attendance/regularize-approvals');
+            }
+
+            // Prevent self-rejection of attendance regularization
+            if ($approverEmpId > 0 && (int)$regReq['employee_id'] === $approverEmpId && Auth::role() !== 'super_admin') {
+                if (is_ajax()) {
+                    json_response(['success' => false, 'message' => 'Unauthorized! You cannot reject your own attendance regularization. It must be actioned by your reporting manager or Super Admin.'], 403);
+                }
+                flash('danger', 'Unauthorized! You cannot reject your own attendance regularization. It must be actioned by your reporting manager or Super Admin.');
                 redirect('attendance/regularize-approvals');
             }
 
             if (Auth::role() === 'manager') {
                 if ((int)$regReq['manager_id'] !== $approverEmpId && !Employee::isSubordinateOf((int)$regReq['employee_id'], $approverEmpId)) {
+                    if (is_ajax()) {
+                        json_response(['success' => false, 'message' => 'Unauthorized! You can only reject attendance regularizations for your own team members.'], 403);
+                    }
                     flash('danger', 'Unauthorized! You can only reject attendance regularizations for your own team members.');
                     redirect('attendance/regularize-approvals');
                 }
@@ -167,8 +220,14 @@ class AttendanceController {
                 if ($regReq && !empty($regReq['user_id'])) {
                     Notification::send((int)$regReq['user_id'], 'attendance', 'Regularization Rejected', "Your regularization request for {$regReq['date']} was rejected.", 'attendance/my-attendance', 'fa-clock-rotate-left', '#dc2626');
                 }
+                if (is_ajax()) {
+                    json_response(['success' => true, 'message' => 'Attendance regularization rejected.']);
+                }
                 flash('warning', 'Attendance regularization rejected.');
             } else {
+                if (is_ajax()) {
+                    json_response(['success' => false, 'message' => 'Could not reject regularization request.'], 500);
+                }
                 flash('danger', 'Could not reject regularization request.');
             }
         }
@@ -195,7 +254,12 @@ class AttendanceController {
             return;
         }
 
-        $logs = Attendance::getAttendanceLogs($filters);
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = max(1, min(100, (int)($_GET['per_page'] ?? 20)));
+
+        $totalLogs = Attendance::countAttendanceLogs($filters);
+        $pagination = paginate($totalLogs, $page, $perPage);
+        $logs = Attendance::getAttendanceLogs($filters, $pagination['limit'], $pagination['offset']);
         $departments = (Auth::role() === 'manager') ? [] : Department::getAll();
         $todayStats = Attendance::getTodayCompanyStats($subordinateIds);
 
@@ -259,7 +323,7 @@ class AttendanceController {
         require_once BASE_PATH . '/views/attendance/monthly_sheet.php';
     }
 
-    public function exportMatrixCsv(array $matrixData): void {
+    private function exportMatrixCsv(array $matrixData): void {
         $month = $matrixData['month'];
         $year = $matrixData['year'];
         $totalDays = $matrixData['total_days'];

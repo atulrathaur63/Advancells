@@ -8,18 +8,26 @@ require_once __DIR__ . '/../Helpers.php';
 require_once __DIR__ . '/../Models/Resignation.php';
 require_once __DIR__ . '/../Models/Employee.php';
 require_once __DIR__ . '/../Models/Notification.php';
+require_once __DIR__ . '/../Models/Asset.php';
 
 class ResignationController {
     public function index(): void {
         Auth::requireRole(['super_admin', 'hr_admin', 'manager']);
 
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = max(1, min(100, (int)($_GET['per_page'] ?? 15)));
+
         // Managers only see resignations for their reportees
-        if (!Auth::isHR()) {
-            $subIds = Employee::getSubordinateIds(Auth::employeeId(), false);
-            $resignations = Resignation::getAll($subIds);
-        } else {
-            $resignations = Resignation::getAll();
+        $subIds = !Auth::isHR() ? Employee::getSubordinateIds(Auth::employeeId(), false) : null;
+        $totalResignations = Resignation::countAll($subIds);
+        $pagination = paginate($totalResignations, $page, $perPage);
+        $resignations = Resignation::getAll($subIds, $pagination['limit'], $pagination['offset']);
+
+        // Attach pending unreturned assets for each resigning employee
+        foreach ($resignations as &$r) {
+            $r['pending_assets'] = Asset::getPendingExitAssets((int)$r['employee_id']);
         }
+        unset($r);
 
         require_once BASE_PATH . '/views/resignations/index.php';
     }
@@ -82,6 +90,17 @@ class ResignationController {
 
                 if (!in_array($status, ['manager_approved', 'rejected'], true)) {
                     flash('danger', 'Unauthorized action! Only HR can provide clearance or finalize exit.');
+                    redirect('resignations');
+                    return;
+                }
+            }
+
+            // Hardware Clearance Check: Prevent completing exit if employee has active company assets
+            if ($status === 'completed') {
+                $pendingAssets = Asset::getPendingExitAssets((int)$resignation['employee_id']);
+                if (!empty($pendingAssets)) {
+                    $assetNames = implode(', ', array_map(fn($a) => $a['name'] . ' (' . $a['asset_code'] . ')', $pendingAssets));
+                    flash('danger', "Cannot finalize exit! {$resignation['employee_name']} still holds " . count($pendingAssets) . " unreturned company asset(s): {$assetNames}. Please record device returns in Asset Management before completing separation.");
                     redirect('resignations');
                     return;
                 }

@@ -193,9 +193,67 @@ class Document {
     }
 
     /**
+     * Aggregate document counts by status for HR Dashboard
+     */
+    public static function getStats(): array {
+        $sql = "SELECT 
+                    COUNT(*) AS total,
+                    COALESCE(SUM(CASE WHEN status = 'verified' THEN 1 ELSE 0 END), 0) AS verified,
+                    COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) AS pending,
+                    COALESCE(SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END), 0) AS rejected
+                FROM employee_documents";
+        $res = Database::fetchOne($sql) ?: [];
+        return [
+            'total'    => (int)($res['total'] ?? 0),
+            'verified' => (int)($res['verified'] ?? 0),
+            'pending'  => (int)($res['pending'] ?? 0),
+            'rejected' => (int)($res['rejected'] ?? 0),
+        ];
+    }
+
+    /**
+     * Count documents matching filters for pagination
+     */
+    public static function countAll(array $filters = []): int {
+        $where = [];
+        $params = [];
+
+        if (!empty($filters['status'])) {
+            $where[] = "d.status = ?";
+            $params[] = $filters['status'];
+        }
+
+        if (!empty($filters['document_type'])) {
+            $where[] = "d.document_type = ?";
+            $params[] = $filters['document_type'];
+        }
+
+        if (!empty($filters['department_id'])) {
+            $where[] = "e.department_id = ?";
+            $params[] = (int)$filters['department_id'];
+        }
+
+        if (!empty($filters['search'])) {
+            $term = '%' . $filters['search'] . '%';
+            $where[] = "(e.first_name LIKE ? OR e.last_name LIKE ? OR e.emp_code LIKE ? OR d.title LIKE ? OR d.file_name LIKE ?)";
+            $params = array_merge($params, [$term, $term, $term, $term, $term]);
+        }
+
+        $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        $sql = "SELECT COUNT(*) AS total
+                FROM employee_documents d
+                JOIN employees e ON d.employee_id = e.id
+                {$whereClause}";
+
+        $row = Database::fetchOne($sql, $params);
+        return (int)($row['total'] ?? 0);
+    }
+
+    /**
      * Master query for HR Document Hub
      */
-    public static function getAll(array $filters = []): array {
+    public static function getAll(array $filters = [], ?int $limit = null, ?int $offset = null): array {
         $where = [];
         $params = [];
 
@@ -234,6 +292,13 @@ class Document {
                 LEFT JOIN users v ON d.verified_by = v.id
                 {$whereClause}
                 ORDER BY d.created_at DESC";
+
+        if ($limit !== null) {
+            $sql .= " LIMIT " . (int)$limit;
+            if ($offset !== null) {
+                $sql .= " OFFSET " . (int)$offset;
+            }
+        }
 
         return Database::fetchAll($sql, $params);
     }

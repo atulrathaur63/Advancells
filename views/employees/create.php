@@ -156,7 +156,7 @@ require_once BASE_PATH . '/views/layouts/header.php';
                         <select name="manager_id" id="manager_id" class="form-control">
                             <option value="">None (Top-Level Executive)</option>
                             <?php foreach ($managers as $mgr): ?>
-                                <option value="<?= $mgr['id'] ?>"><?= e($mgr['name']) ?> (<?= e($mgr['designation']) ?>)</option>
+                                <option value="<?= $mgr['id'] ?>"><?= e($mgr['name']) ?> (<?= e($mgr['emp_code']) ?> - <?= e($mgr['designation']) ?>)</option>
                             <?php endforeach; ?>
                         </select>
                     </div>

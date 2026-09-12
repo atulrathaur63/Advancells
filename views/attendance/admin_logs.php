@@ -50,9 +50,9 @@ require_once BASE_PATH . '/views/layouts/header.php';
 
 <div class="card">
     <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
-        <h2 class="card-title"><i class="fa-solid fa-calendar-days text-primary"></i> Attendance Master Logs</h2>
+        <h2 class="card-title"><i class="fa-solid fa-calendar-days text-primary"></i> Attendance Master Logs (<?= $pagination['total_items'] ?? count($logs) ?>)</h2>
         <div style="display: flex; gap: 10px;">
-            <a href="<?= url('attendance/admin-logs?export=csv' . (!empty($filters['date']) ? '&date=' . $filters['date'] : '') . (!empty($filters['department_id']) ? '&department_id=' . $filters['department_id'] : '') . (!empty($filters['status']) ? '&status=' . $filters['status'] : '')) ?>" class="btn btn-sm btn-secondary">
+            <a href="<?= url('attendance/admin-logs?' . http_build_query(array_merge($_GET, ['export' => 'csv']))) ?>" class="btn btn-sm btn-secondary">
                 <i class="fa-solid fa-file-arrow-down"></i> Export Log CSV
             </a>
             <a href="<?= url('attendance/regularize-approvals') ?>" class="btn btn-sm btn-primary">
@@ -149,6 +149,9 @@ require_once BASE_PATH . '/views/layouts/header.php';
                     </tbody>
                 </table>
             </div>
+            <?php if (isset($pagination)): ?>
+                <?= render_pagination($pagination) ?>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>

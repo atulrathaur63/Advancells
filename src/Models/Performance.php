@@ -40,7 +40,40 @@ class Performance {
         return true;
     }
 
-    public static function getReviews(?int $employeeId = null, ?int $reviewerId = null, array $employeeIds = []): array {
+    public static function countReviews(?int $employeeId = null, ?int $reviewerId = null, array $employeeIds = []): int {
+        $sql = "SELECT count(*) AS cnt
+                FROM performance_reviews pr
+                JOIN employees e ON pr.employee_id = e.id
+                WHERE 1=1";
+        $params = [];
+
+        if ($employeeId !== null) {
+            $sql .= " AND pr.employee_id = ?";
+            $params[] = $employeeId;
+        } elseif (!empty($employeeIds)) {
+            $empList = array_values(array_filter(array_map('intval', $employeeIds)));
+            if (!empty($empList)) {
+                $placeholders = implode(',', array_fill(0, count($empList), '?'));
+                if ($reviewerId !== null) {
+                    $sql .= " AND (pr.employee_id IN ($placeholders) OR pr.reviewer_id = ?)";
+                    $params = array_merge($params, $empList, [$reviewerId]);
+                } else {
+                    $sql .= " AND pr.employee_id IN ($placeholders)";
+                    $params = array_merge($params, $empList);
+                }
+            } else {
+                $sql .= " AND 1=0";
+            }
+        } elseif ($reviewerId !== null) {
+            $sql .= " AND pr.reviewer_id = ?";
+            $params[] = $reviewerId;
+        }
+
+        $row = Database::fetchOne($sql, $params);
+        return (int)($row['cnt'] ?? 0);
+    }
+
+    public static function getReviews(?int $employeeId = null, ?int $reviewerId = null, array $employeeIds = [], ?int $limit = null, ?int $offset = null): array {
         $sql = "SELECT pr.*, e.emp_code, CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
                        d.name AS department_name, des.title AS designation_title,
                        CONCAT(r.first_name, ' ', r.last_name) AS reviewer_name
@@ -75,6 +108,14 @@ class Performance {
         }
 
         $sql .= " ORDER BY pr.created_at DESC";
+
+        if ($limit !== null) {
+            $sql .= " LIMIT " . (int)$limit;
+            if ($offset !== null) {
+                $sql .= " OFFSET " . (int)$offset;
+            }
+        }
+
         return Database::fetchAll($sql, $params);
     }
 

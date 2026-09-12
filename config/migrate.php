@@ -127,6 +127,8 @@ function runMigration($cliMode = false): void {
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             INDEX (`employee_id`),
+            INDEX (`manager_id`),
+            INDEX (`date`),
             INDEX (`status`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
@@ -136,6 +138,7 @@ function runMigration($cliMode = false): void {
             `name` VARCHAR(50) NOT NULL,
             `code` VARCHAR(20) NOT NULL UNIQUE,
             `days_per_year` INT NOT NULL DEFAULT 12,
+            `max_carry_forward` INT NOT NULL DEFAULT 0,
             `is_paid` TINYINT(1) DEFAULT 1,
             `description` TEXT,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -147,9 +150,10 @@ function runMigration($cliMode = false): void {
             `employee_id` INT NOT NULL,
             `leave_type_id` INT NOT NULL,
             `year` INT NOT NULL,
-            `total_allocated` DECIMAL(5,1) NOT NULL DEFAULT 0.0,
-            `used` DECIMAL(5,1) NOT NULL DEFAULT 0.0,
-            `pending` DECIMAL(5,1) NOT NULL DEFAULT 0.0,
+            `carried_forward` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+            `total_allocated` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+            `used` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+            `pending` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY `emp_leave_year` (`employee_id`, `leave_type_id`, `year`),
@@ -174,6 +178,7 @@ function runMigration($cliMode = false): void {
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             INDEX (`employee_id`),
+            INDEX (`manager_id`),
             INDEX (`status`),
             INDEX (`from_date`),
             INDEX (`to_date`)
@@ -313,7 +318,8 @@ function runMigration($cliMode = false): void {
             `ip_address` VARCHAR(45) NULL,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX (`user_id`),
-            INDEX (`module`)
+            INDEX (`module`),
+            INDEX (`created_at`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         // 18. Employee Documents Table (Document Locker)
@@ -365,6 +371,63 @@ function runMigration($cliMode = false): void {
             INDEX (`user_id`),
             INDEX (`is_read`),
             INDEX (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // 20. Assets Table (Hardware, Devices & Equipment)
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `assets` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `asset_code` VARCHAR(50) NOT NULL UNIQUE,
+            `name` VARCHAR(150) NOT NULL,
+            `category` ENUM('laptop', 'desktop', 'mobile_tablet', 'monitor', 'lab_equipment', 'peripheral', 'access_card', 'other') NOT NULL DEFAULT 'laptop',
+            `brand` VARCHAR(100) NULL,
+            `model` VARCHAR(100) NULL,
+            `serial_number` VARCHAR(100) NULL,
+            `purchase_date` DATE NULL,
+            `purchase_cost` DECIMAL(10,2) NULL DEFAULT 0.00,
+            `warranty_expiry` DATE NULL,
+            `status` ENUM('available', 'allocated', 'under_repair', 'lost', 'retired') NOT NULL DEFAULT 'available',
+            `current_employee_id` INT NULL,
+            `condition` ENUM('brand_new', 'good', 'fair', 'damaged') DEFAULT 'good',
+            `notes` TEXT NULL,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX (`status`),
+            INDEX (`category`),
+            INDEX (`current_employee_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // 21. Asset Allocations Table (Handover & Return Audit History)
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `asset_allocations` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `asset_id` INT NOT NULL,
+            `employee_id` INT NOT NULL,
+            `allocated_by` INT NOT NULL,
+            `allocated_date` DATE NOT NULL,
+            `expected_return_date` DATE NULL,
+            `returned_date` DATE NULL,
+            `received_by` INT NULL,
+            `status` ENUM('active', 'returned', 'damaged', 'lost') DEFAULT 'active',
+            `allocation_notes` TEXT NULL,
+            `return_notes` TEXT NULL,
+            `return_condition` ENUM('brand_new', 'good', 'fair', 'damaged') NULL,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX (`asset_id`),
+            INDEX (`employee_id`),
+            INDEX (`status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // 22. Celebration Wishes Table (Social Greetings for Birthdays, Anniversaries & Welcome)
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `celebration_wishes` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `sender_id` INT NOT NULL,
+            `receiver_id` INT NOT NULL,
+            `celebration_type` ENUM('birthday', 'anniversary', 'welcome') NOT NULL,
+            `message` VARCHAR(255) NOT NULL,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX (`receiver_id`),
+            INDEX (`sender_id`),
+            INDEX (`celebration_type`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         // Re-enable foreign key checks
@@ -648,6 +711,80 @@ function seedData(PDO $pdo): void {
     $regStmt->execute([
         4, date('Y-m-d', strtotime('-3 days')), 'Card reader was temporarily offline during morning entry.'
     ]);
+
+    // 14. Seed Company Assets & Allocations
+    $assetStmt = $pdo->prepare("INSERT IGNORE INTO `assets` (
+        `id`, `asset_code`, `name`, `category`, `brand`, `model`, `serial_number`, `purchase_date`, `purchase_cost`, `warranty_expiry`, `status`, `current_employee_id`, `condition`, `notes`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+    $assets = [
+        [1, 'ADV-AST-001', 'MacBook Pro 16" M2 Pro', 'laptop', 'Apple', 'A2485', 'C02G849XMD6T', '2024-01-15', 249900.00, '2027-01-15', 'allocated', 4, 'brand_new', 'Allocated for senior biotech research & software portal development'],
+        [2, 'ADV-AST-002', 'Dell Latitude 5430', 'laptop', 'Dell', 'Latitude 5430', '8J2K9L3-IN', '2024-02-10', 94500.00, '2026-02-10', 'allocated', 3, 'good', 'Standard manager workstation laptop with docking support'],
+        [3, 'ADV-AST-003', 'Eppendorf 5425 Centrifuge', 'lab_equipment', 'Eppendorf', 'Centrifuge 5425 R', 'EP-5425-9921', '2023-11-20', 485000.00, '2026-11-20', 'allocated', 3, 'good', 'Precision refrigerated microcentrifuge for stem cell isolation room'],
+        [4, 'ADV-AST-004', 'Cleanroom RFID Smart Badge', 'access_card', 'HID Global', 'iCLASS SE', 'RFID-ADV-004', '2024-01-01', 1200.00, NULL, 'allocated', 4, 'good', 'Bio-containment Level 2 cleanroom access clearance card'],
+        [5, 'ADV-AST-005', 'Dell UltraSharp 27" 4K Monitor', 'monitor', 'Dell', 'U2723QE', 'CN-08R4T2-74445', '2024-03-05', 52900.00, '2027-03-05', 'available', NULL, 'brand_new', 'Ready in IT pool for graphics or workstation dual-display'],
+        [6, 'ADV-AST-006', 'ThinkPad T14s Gen 4', 'laptop', 'Lenovo', 'ThinkPad T14s', 'PF-3K8M20', '2024-04-12', 118000.00, '2027-04-12', 'available', NULL, 'brand_new', 'Spare engineer laptop available for deployment'],
+        [7, 'ADV-AST-007', 'iPad Pro 11" Cellular', 'mobile_tablet', 'Apple', 'A2759', 'DMPK9284PL09', '2023-09-18', 89900.00, '2025-09-18', 'available', NULL, 'good', 'Digital clinical trial questionnaire and patient intake tablet']
+    ];
+    foreach ($assets as $ast) {
+        $assetStmt->execute($ast);
+    }
+
+    $allocStmt = $pdo->prepare("INSERT IGNORE INTO `asset_allocations` (
+        `id`, `asset_id`, `employee_id`, `allocated_by`, `allocated_date`, `expected_return_date`, `status`, `allocation_notes`
+    ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?)");
+
+    $allocations = [
+        [1, 1, 4, 1, '2024-01-16', NULL, 'Primary development workstation issued upon onboarding'],
+        [2, 2, 3, 1, '2024-02-12', NULL, 'Managerial laptop provided for clinical oversight'],
+        [3, 3, 3, 1, '2024-02-15', NULL, 'Lab apparatus custodian assignment for Stem Cell Therapy Dept'],
+        [4, 4, 4, 1, '2024-01-16', NULL, 'Keycard issued for Bio-safety Cabinet Suite entrance']
+    ];
+    foreach ($allocations as $alc) {
+        $allocStmt->execute($alc);
+    }
+
+    // 15. Seed New Joinee Employee #7 (Rahul Mehra)
+    $passwordEmp = password_hash('Emp@123', PASSWORD_BCRYPT);
+    $pdo->prepare("INSERT IGNORE INTO `users` (`id`, `name`, `email`, `password`, `role`, `status`) VALUES (7, 'Rahul Mehra', 'rahul@advancells.com', ?, 'employee', 'active')")->execute([$passwordEmp]);
+
+    $pdo->prepare("INSERT IGNORE INTO `employees` (
+        `id`, `user_id`, `emp_code`, `first_name`, `last_name`, `email`, `phone`, `gender`, `dob`, `blood_group`,
+        `marital_status`, `address`, `emergency_contact_name`, `emergency_contact_phone`,
+        `department_id`, `designation_id`, `manager_id`, `date_of_joining`, `employment_type`, `status`,
+        `bank_name`, `account_number`, `ifsc_code`, `pan_number`, `uan_number`
+    ) VALUES (
+        7, 7, 'ADV-007', 'Rahul', 'Mehra', 'rahul@advancells.com', '+91 97888 12345', 'male', '1997-12-04', 'B+',
+        'single', 'Sector 62, Noida, UP', 'S. K. Mehra', '+91 97888 99999',
+        3, 6, 3, '2026-09-01', 'probation', 'active',
+        'HDFC Bank', '50100456123789', 'HDFC0000456', 'MEHRA9876K', '100908765432'
+    )")->execute();
+
+    // 16. Ensure Celebration Milestone Dates are synchronized for Testing:
+    // Today's Birthday: Ananya Singh (id=4) - Sep 07
+    // Upcoming Birthday in 10 days: Amit Patel (id=5) - Sep 17
+    // Today's Work Anniversary (5 Years): Rajesh Verma (id=3) - Joined 2021-09-07
+    // Upcoming Work Anniversary in 10 days (3 Years): Priya Sharma (id=2) - Joined 2023-09-17
+    // New Joinees: Sneha Kapoor (id=6, joined 2026-08-25) and Rahul Mehra (id=7, joined 2026-09-01)
+    $pdo->exec("UPDATE `employees` SET `dob` = '1995-09-07' WHERE `id` = 4;");
+    $pdo->exec("UPDATE `employees` SET `dob` = '1993-09-17' WHERE `id` = 5;");
+    $pdo->exec("UPDATE `employees` SET `date_of_joining` = '2021-09-07' WHERE `id` = 3;");
+    $pdo->exec("UPDATE `employees` SET `date_of_joining` = '2023-09-17' WHERE `id` = 2;");
+    $pdo->exec("UPDATE `employees` SET `date_of_joining` = '2026-08-25' WHERE `id` = 6;");
+    $pdo->exec("UPDATE `employees` SET `date_of_joining` = '2026-09-01' WHERE `id` = 7;");
+
+    // 17. Seed Initial Celebration Wishes
+    $wishStmt = $pdo->prepare("INSERT IGNORE INTO `celebration_wishes` (`id`, `sender_id`, `receiver_id`, `celebration_type`, `message`, `created_at`) VALUES (?, ?, ?, ?, ?, ?)");
+    $wishes = [
+        [1, 1, 4, 'birthday', '🎂 Happy Birthday Ananya! Wishing you fantastic health and continued breakthroughs in our clinical biotech research!', date('Y-m-d H:i:s', strtotime('-2 hours'))],
+        [2, 3, 4, 'birthday', '🎉 Wishing you a wonderful birthday Ananya! Have a great celebration with the team!', date('Y-m-d H:i:s', strtotime('-1 hour'))],
+        [3, 1, 3, 'anniversary', '🎖️ Congratulations on completing 5 incredible years of leadership at Advancells, Rajesh! Proud of your journey.', date('Y-m-d H:i:s', strtotime('-3 hours'))],
+        [4, 2, 6, 'welcome', '👋 Welcome to the Advancells family Sneha! Looking forward to achieving great milestones together in QC!', date('Y-m-d H:i:s', strtotime('-5 days'))],
+        [5, 3, 7, 'welcome', '👋 Welcome aboard to the CRT Lab team Rahul! Excited to work with you on stem cell research!', date('Y-m-d H:i:s', strtotime('-3 days'))]
+    ];
+    foreach ($wishes as $w) {
+        $wishStmt->execute($w);
+    }
 }
 
 // If invoked from CLI

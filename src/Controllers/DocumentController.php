@@ -15,7 +15,7 @@ class DocumentController {
      * Master HR Document Locker & Compliance Matrix
      */
     public function index(): void {
-        Auth::requireRole(['super_admin', 'hr_admin', 'manager']);
+        Auth::requireRole(['super_admin', 'hr_admin']);
 
         $filters = [
             'status'        => $_GET['status'] ?? null,
@@ -26,19 +26,19 @@ class DocumentController {
 
         if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             $this->exportCsv($filters);
+            return;
         }
 
-        $documents = Document::getAll($filters);
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = max(1, min(100, (int)($_GET['per_page'] ?? 15)));
+
+        $totalDocs = Document::countAll($filters);
+        $pagination = paginate($totalDocs, $page, $perPage);
+        $documents = Document::getAll($filters, $pagination['limit'], $pagination['offset']);
         $departments = Department::getAll();
         
-        // Calculate master stats
-        $allDocs = Document::getAll([]);
-        $stats = [
-            'total'    => count($allDocs),
-            'verified' => count(array_filter($allDocs, fn($d) => $d['status'] === 'verified')),
-            'pending'  => count(array_filter($allDocs, fn($d) => $d['status'] === 'pending')),
-            'rejected' => count(array_filter($allDocs, fn($d) => $d['status'] === 'rejected')),
-        ];
+        // Calculate master stats via single aggregate query
+        $stats = Document::getStats();
 
         $employees = Employee::getAll(['status' => 'active']);
 
@@ -134,9 +134,7 @@ class DocumentController {
         }
         flash('success', "Document '{$doc['title']}' for {$doc['first_name']} {$doc['last_name']} marked as Verified!");
 
-        $redirect = $_POST['redirect_to'] ?? url('documents');
-        header("Location: {$redirect}");
-        exit;
+        $this->safeRedirect($_POST['redirect_to'] ?? null, 'documents');
     }
 
     /**
@@ -169,9 +167,7 @@ class DocumentController {
         }
         flash('warning', "Document '{$doc['title']}' has been marked as Rejected.");
 
-        $redirect = $_POST['redirect_to'] ?? url('documents');
-        header("Location: {$redirect}");
-        exit;
+        $this->safeRedirect($_POST['redirect_to'] ?? null, 'documents');
     }
 
     /**
@@ -249,7 +245,7 @@ class DocumentController {
         }
 
         $isHR = Auth::isHR();
-        $isOwner = ($doc['employee_id'] === Auth::employeeId() && $doc['status'] === 'pending');
+        $isOwner = ((int)$doc['employee_id'] === (int)Auth::employeeId() && $doc['status'] === 'pending');
 
         if (!$isHR && !$isOwner) {
             flash('danger', 'You do not have permission to delete this verified document.');
@@ -259,14 +255,21 @@ class DocumentController {
         Document::delete($id);
         flash('success', "Document deleted successfully.");
 
-        $redirect = $_POST['redirect_to'] ?? url('documents');
-        header("Location: {$redirect}");
-        exit;
+        $this->safeRedirect($_POST['redirect_to'] ?? null, 'documents');
+    }
+
+    private function safeRedirect(?string $target, string $defaultRoute = 'documents'): void {
+        if (!empty($target) && str_starts_with($target, BASE_URL)) {
+            header("Location: " . $target);
+            exit;
+        }
+        redirect($defaultRoute);
     }
 
     private function redirectBack(int $targetEmpId): void {
-        if (!empty($_POST['redirect_to'])) {
-            header("Location: " . $_POST['redirect_to']);
+        $target = $_POST['redirect_to'] ?? '';
+        if (!empty($target) && str_starts_with($target, BASE_URL)) {
+            header("Location: " . $target);
             exit;
         }
 

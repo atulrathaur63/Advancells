@@ -6,7 +6,22 @@
 require_once __DIR__ . '/../Database.php';
 
 class Announcement {
-    public static function getActive(?string $role = null): array {
+    public static function countActive(?string $role = null): int {
+        $sql = "SELECT count(*) AS cnt
+                FROM announcements a
+                WHERE (a.expires_at IS NULL OR a.expires_at >= CURDATE())";
+        $params = [];
+
+        if ($role !== null && !in_array($role, ['super_admin', 'hr_admin'], true)) {
+            $sql .= " AND (a.target_role = 'all' OR a.target_role = ?)";
+            $params[] = $role;
+        }
+
+        $row = Database::fetchOne($sql, $params);
+        return (int)($row['cnt'] ?? 0);
+    }
+
+    public static function getActive(?string $role = null, ?int $limit = null, ?int $offset = null): array {
         $sql = "SELECT a.*, u.name AS author_name, u.role AS author_role
                 FROM announcements a
                 JOIN users u ON a.posted_by = u.id
@@ -19,6 +34,14 @@ class Announcement {
         }
 
         $sql .= " ORDER BY a.priority = 'urgent' DESC, a.priority = 'high' DESC, a.created_at DESC";
+
+        if ($limit !== null) {
+            $sql .= " LIMIT " . (int)$limit;
+            if ($offset !== null) {
+                $sql .= " OFFSET " . (int)$offset;
+            }
+        }
+
         return Database::fetchAll($sql, $params);
     }
 

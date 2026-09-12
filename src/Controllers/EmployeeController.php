@@ -12,6 +12,7 @@ require_once __DIR__ . '/../Models/Leave.php';
 require_once __DIR__ . '/../Models/Payroll.php';
 require_once __DIR__ . '/../Models/Performance.php';
 require_once __DIR__ . '/../Models/Document.php';
+require_once __DIR__ . '/../Models/Asset.php';
 
 class EmployeeController {
     public function index(): void {
@@ -35,7 +36,12 @@ class EmployeeController {
             return;
         }
 
-        $employees = Employee::getAll($filters);
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = max(1, min(100, (int)($_GET['per_page'] ?? 15)));
+
+        $totalEmployees = Employee::countAll($filters);
+        $pagination = paginate($totalEmployees, $page, $perPage);
+        $employees = Employee::getAll($filters, $pagination['limit'], $pagination['offset']);
         $departments = Department::getAll();
 
         require_once BASE_PATH . '/views/employees/index.php';
@@ -238,6 +244,12 @@ class EmployeeController {
         $documents = Document::getByEmployee($id);
         $docCategories = Document::getCategories();
         $compliance = Document::getComplianceSummary($id);
+
+        $activeAssets = Asset::getByEmployee($id, true);
+        $pastAssets = Asset::getByEmployee($id, false);
+        $availableAssets = Asset::getAvailable();
+        $assetCategories = Asset::getCategories();
+        $assetConditions = Asset::getConditions();
 
         require_once BASE_PATH . '/views/employees/view.php';
     }

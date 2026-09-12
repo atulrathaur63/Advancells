@@ -74,6 +74,12 @@ switch ($route) {
     case 'departments':
         (new DepartmentController())->index();
         break;
+    case 'departments/delete':
+        (new DepartmentController())->delete();
+        break;
+    case 'departments/delete-designation':
+        (new DepartmentController())->deleteDesignation();
+        break;
 
 
     // Organization Chart & Hierarchy
@@ -129,8 +135,24 @@ switch ($route) {
     case 'leaves/reject':
         (new LeaveController())->reject();
         break;
+    case 'leaves/cancel':
+        (new LeaveController())->cancel();
+        break;
+    case 'leaves/calculate-days':
+        (new LeaveController())->calculateDays();
+        break;
     case 'leaves/holidays':
         (new LeaveController())->holidays();
+        break;
+    case 'leaves/delete-holiday':
+    case 'leaves/holidays/delete':
+        (new LeaveController())->deleteHoliday();
+        break;
+    case 'leaves/sync-balances':
+        (new LeaveController())->syncBalances();
+        break;
+    case 'leaves/edit-balances':
+        (new LeaveController())->editBalances();
         break;
 
     // Payroll
@@ -200,6 +222,42 @@ switch ($route) {
         (new DocumentController())->delete();
         break;
 
+    // Company Asset & Device Management
+    case 'assets':
+    case 'company-assets':
+    case 'asset-management':
+        (new AssetController())->index();
+        break;
+    case 'assets/create':
+    case 'company-assets/create':
+        (new AssetController())->create();
+        break;
+    case 'assets/edit':
+    case 'company-assets/edit':
+        (new AssetController())->edit();
+        break;
+    case 'assets/delete':
+    case 'company-assets/delete':
+        (new AssetController())->delete();
+        break;
+    case 'assets/allocate':
+    case 'company-assets/allocate':
+        (new AssetController())->allocate();
+        break;
+    case 'assets/return':
+    case 'company-assets/return':
+        (new AssetController())->returnAsset();
+        break;
+    case 'my-assets':
+    case 'assets/my-assets':
+    case 'company-assets/my-assets':
+        (new AssetController())->myAssets();
+        break;
+    case 'assets/view':
+    case 'company-assets/view':
+        (new AssetController())->view();
+        break;
+
     // Notifications
     case 'notifications/mark-read':
         (new NotificationController())->markRead();
@@ -209,6 +267,20 @@ switch ($route) {
         break;
     case 'notifications/unread-count':
         (new NotificationController())->unreadCount();
+        break;
+
+    // Celebrations & Greetings
+    case 'celebrations/send-wish':
+        (new DashboardController())->sendWish();
+        break;
+    case 'celebrations/wishes':
+        (new DashboardController())->getWishes();
+        break;
+
+    // Global Search & Command Palette API
+    case 'search':
+    case 'api/search':
+        (new SearchController())->index();
         break;
 
     default:

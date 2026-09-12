@@ -98,14 +98,20 @@ require_once BASE_PATH . '/views/layouts/header.php';
                     for ($d = 1; $d <= $daysInMonth; $d++):
                         $dateStr = sprintf('%04d-%02d-%02d', $year, $month, $d);
                         $dayOfWeek = date('D', strtotime($dateStr));
-                        $isWeekend = ($dayOfWeek === 'Sat' || $dayOfWeek === 'Sun');
+                        $isWeekend = is_weekend($dateStr);
+                        $dayLabel = $dayOfWeek;
+                        if ($dayOfWeek === 'Sat') {
+                            $satNum = (int)ceil($d / 7);
+                            $ordinal = [1 => '1st', 2 => '2nd', 3 => '3rd', 4 => '4th', 5 => '5th'][$satNum] ?? ($satNum . 'th');
+                            $dayLabel = "Sat ({$ordinal})";
+                        }
                         $record = $recordsByDate[$dateStr] ?? null;
                     ?>
                         <tr style="<?= $isWeekend ? 'background: #f8fafc;' : '' ?>">
                             <td><strong><?= date('d M Y', strtotime($dateStr)) ?></strong></td>
-                            <td style="color: var(--text-muted);"><?= $dayOfWeek ?></td>
-                            <td><?= (!empty($record['punch_in'])) ? format_time($record['punch_in']) : ($isWeekend ? '<span style="color:#94a3b8;">Weekend</span>' : '--:--') ?></td>
-                            <td><?= (!empty($record['punch_out'])) ? format_time($record['punch_out']) : ($isWeekend ? '<span style="color:#94a3b8;">Weekend</span>' : '--:--') ?></td>
+                            <td style="color: var(--text-muted);"><?= $dayLabel ?></td>
+                            <td><?= (!empty($record['punch_in'])) ? format_time($record['punch_in']) : ($isWeekend ? '<span style="color:#94a3b8;">Week Off</span>' : '--:--') ?></td>
+                            <td><?= (!empty($record['punch_out'])) ? format_time($record['punch_out']) : ($isWeekend ? '<span style="color:#94a3b8;">Week Off</span>' : '--:--') ?></td>
                             <td><?= (!empty($record['total_hours']) && $record['total_hours'] > 0) ? $record['total_hours'] . ' hrs' : '--' ?></td>
                             <td>
                                 <?php if ($record): ?>
@@ -114,7 +120,7 @@ require_once BASE_PATH . '/views/layouts/header.php';
                                         <span class="badge badge-purple" title="Regularized">Reg.</span>
                                     <?php endif; ?>
                                 <?php elseif ($isWeekend): ?>
-                                    <span class="badge badge-secondary">Weekend</span>
+                                    <span class="badge badge-secondary">Week Off</span>
                                 <?php elseif (strtotime($dateStr) < strtotime(date('Y-m-d'))): ?>
                                     <span class="badge badge-danger">Absent</span>
                                 <?php else: ?>

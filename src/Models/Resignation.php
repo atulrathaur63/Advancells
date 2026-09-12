@@ -19,7 +19,27 @@ class Resignation {
         return Database::fetchOne($sql, [$id]);
     }
 
-    public static function getAll(?array $employeeIds = null): array {
+    public static function countAll(?array $employeeIds = null): int {
+        $where = "";
+        $params = [];
+        if ($employeeIds !== null) {
+            if (empty($employeeIds)) {
+                return 0;
+            }
+            $placeholders = implode(',', array_fill(0, count($employeeIds), '?'));
+            $where = " WHERE r.employee_id IN ($placeholders)";
+            $params = $employeeIds;
+        }
+
+        $sql = "SELECT count(*) AS cnt
+                FROM resignations r
+                JOIN employees e ON r.employee_id = e.id
+                {$where}";
+        $row = Database::fetchOne($sql, $params);
+        return (int)($row['cnt'] ?? 0);
+    }
+
+    public static function getAll(?array $employeeIds = null, ?int $limit = null, ?int $offset = null): array {
         $where = "";
         $params = [];
         if ($employeeIds !== null) {
@@ -40,6 +60,14 @@ class Resignation {
                 LEFT JOIN designations des ON e.designation_id = des.id
                 {$where}
                 ORDER BY r.created_at DESC";
+
+        if ($limit !== null) {
+            $sql .= " LIMIT " . (int)$limit;
+            if ($offset !== null) {
+                $sql .= " OFFSET " . (int)$offset;
+            }
+        }
+
         return Database::fetchAll($sql, $params);
     }
 

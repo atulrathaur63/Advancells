@@ -4,9 +4,53 @@
  */
 
 require_once __DIR__ . '/../Database.php';
+require_once __DIR__ . '/../Auth.php';
+require_once __DIR__ . '/Leave.php';
 
 class Employee {
-    public static function getAll(array $filters = []): array {
+    public static function countAll(array $filters = []): int {
+        $sql = "SELECT COUNT(*) AS total
+                FROM employees e
+                LEFT JOIN users u ON e.user_id = u.id
+                WHERE 1=1";
+        $params = [];
+
+        if (!empty($filters['department_id'])) {
+            $sql .= " AND e.department_id = ?";
+            $params[] = $filters['department_id'];
+        }
+
+        if (!empty($filters['status'])) {
+            $sql .= " AND e.status = ?";
+            $params[] = $filters['status'];
+        }
+
+        if (isset($filters['employee_ids'])) {
+            $empIds = array_values(array_filter(array_map('intval', (array)$filters['employee_ids'])));
+            if (!empty($empIds)) {
+                $placeholders = implode(',', array_fill(0, count($empIds), '?'));
+                $sql .= " AND e.id IN ({$placeholders})";
+                $params = array_merge($params, $empIds);
+            } else {
+                $sql .= " AND 1=0";
+            }
+        }
+
+        if (!empty($filters['search'])) {
+            $search = '%' . $filters['search'] . '%';
+            $sql .= " AND (e.emp_code LIKE ? OR e.first_name LIKE ? OR e.last_name LIKE ? OR e.email LIKE ? OR e.phone LIKE ?)";
+            $params[] = $search;
+            $params[] = $search;
+            $params[] = $search;
+            $params[] = $search;
+            $params[] = $search;
+        }
+
+        $res = Database::fetchOne($sql, $params);
+        return (int)($res['total'] ?? 0);
+    }
+
+    public static function getAll(array $filters = [], ?int $limit = null, ?int $offset = null): array {
         $sql = "SELECT e.*, u.role, u.status AS user_status, u.avatar,
                        d.name AS department_name, des.title AS designation_title,
                        CONCAT(m.first_name, ' ', m.last_name) AS manager_name
@@ -50,6 +94,12 @@ class Employee {
         }
 
         $sql .= " ORDER BY e.id ASC";
+        if ($limit !== null && $limit > 0) {
+            $sql .= " LIMIT " . (int)$limit;
+            if ($offset !== null && $offset >= 0) {
+                $sql .= " OFFSET " . (int)$offset;
+            }
+        }
         return Database::fetchAll($sql, $params);
     }
 
@@ -81,12 +131,17 @@ class Employee {
     }
 
     public static function getManagers(): array {
-        $sql = "SELECT e.id, CONCAT(e.first_name, ' ', e.last_name) AS name, des.title AS designation
+        $sql = "SELECT e.id, e.emp_code, e.first_name, e.last_name,
+                       CONCAT(e.first_name, ' ', e.last_name) AS name,
+                       COALESCE(des.title, 'Staff') AS designation,
+                       COALESCE(d.name, 'General') AS department_name,
+                       u.role
                 FROM employees e
                 JOIN users u ON e.user_id = u.id
                 LEFT JOIN designations des ON e.designation_id = des.id
-                WHERE u.role IN ('super_admin', 'hr_admin', 'manager') AND e.status = 'active'
-                ORDER BY e.first_name ASC";
+                LEFT JOIN departments d ON e.department_id = d.id
+                WHERE e.status = 'active'
+                ORDER BY (u.role IN ('super_admin', 'hr_admin', 'manager')) DESC, e.first_name ASC, e.last_name ASC";
         return Database::fetchAll($sql);
     }
 
@@ -134,15 +189,18 @@ class Employee {
             ];
             $empId = Database::insert('employees', $empData);
 
-            // 3. Allocate default leaves for current year
+            // 3. Allocate accrued monthly leaves for current year based on joining date
             $year = (int)date('Y');
-            $leaveTypes = Database::fetchAll("SELECT * FROM leave_types");
+            $newEmp = ['id' => $empId, 'date_of_joining' => $empData['date_of_joining'], 'status' => 'active'];
+            $leaveTypes = Leave::getTypes();
             foreach ($leaveTypes as $lt) {
+                $accrued = Leave::calculateAccruedDays($newEmp, $lt, $year);
                 Database::insert('leave_balances', [
                     'employee_id' => $empId,
                     'leave_type_id' => $lt['id'],
                     'year' => $year,
-                    'total_allocated' => $lt['days_per_year'],
+                    'carried_forward' => 0.0,
+                    'total_allocated' => $accrued,
                     'used' => 0.0,
                     'pending' => 0.0
                 ]);
@@ -194,6 +252,25 @@ class Employee {
         $emp = self::findById($id);
         if (!$emp) return false;
 
+        $newManagerId = !empty($data['manager_id']) ? (int)$data['manager_id'] : null;
+        if ($newManagerId !== null && $newManagerId > 0) {
+            if ($newManagerId === $id) {
+                throw new Exception("An employee cannot report to themselves.");
+            }
+            $curr = $newManagerId;
+            $visited = [$id];
+            while ($curr !== null) {
+                if (in_array($curr, $visited, true)) {
+                    throw new Exception("Circular reporting detected! An employee cannot report to their own subordinate.");
+                }
+                $visited[] = $curr;
+                $parent = Database::fetchOne("SELECT manager_id FROM employees WHERE id = ?", [$curr]);
+                $curr = $parent ? $parent['manager_id'] : null;
+            }
+        } else {
+            $newManagerId = null;
+        }
+
         $empData = [
             'first_name' => trim($data['first_name']),
             'last_name' => trim($data['last_name']), 
@@ -207,7 +284,7 @@ class Employee {
             'emergency_contact_phone' => $data['emergency_contact_phone'] ?? null,
             'department_id' => !empty($data['department_id']) ? (int)$data['department_id'] : null,
             'designation_id' => !empty($data['designation_id']) ? (int)$data['designation_id'] : null,
-            'manager_id' => !empty($data['manager_id']) ? (int)$data['manager_id'] : null,
+            'manager_id' => $newManagerId,
             'date_of_joining' => $data['date_of_joining'] ?? $emp['date_of_joining'],
             'employment_type' => $data['employment_type'] ?? $emp['employment_type'],
             'status' => $data['status'] ?? $emp['status'],
@@ -219,6 +296,14 @@ class Employee {
         ];
 
         Database::update('employees', $empData, "id = ?", [$id]);
+
+        // Auto-elevate manager role in users table if needed
+        if ($newManagerId) {
+            $mgrEmp = self::findById($newManagerId);
+            if ($mgrEmp) {
+                Database::query("UPDATE users SET role = 'manager' WHERE id = ? AND role = 'employee'", [$mgrEmp['user_id']]);
+            }
+        }
 
         // Update User name & role if specified
         $userData = [
@@ -347,6 +432,14 @@ class Employee {
         }
 
         Database::query("UPDATE employees SET manager_id = ? WHERE id = ?", [$managerId, $employeeId]);
+
+        // Auto-elevate manager role in users table if needed
+        if ($managerId) {
+            $mgrEmp = self::findById($managerId);
+            if ($mgrEmp) {
+                Database::query("UPDATE users SET role = 'manager' WHERE id = ? AND role = 'employee'", [$mgrEmp['user_id']]);
+            }
+        }
         
         $emp = self::findById($employeeId);
         $mgr = $managerId ? self::findById($managerId) : null;

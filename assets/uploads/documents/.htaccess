@@ -1,21 +1,9 @@
-# Advancells HRMS - Confidential Document Storage Protection
-# Prevent execution of any scripts
-<FilesMatch "\.(php|phtml|php3|php4|php5|phps|pl|py|cgi|sh)$">
-    <IfModule mod_authz_core.c>
-        Require all denied
-    </IfModule>
-    <IfModule !mod_authz_core.c>
-        Deny from all
-    </IfModule>
-</FilesMatch>
-
-# Block all direct HTTP access/downloads.
-# Files can only be accessed securely through DocumentController::download after authorization
+# Prevent direct HTTP web access to confidential documents
+# All document downloads must pass through DocumentController::download() with RBAC checks
 <IfModule mod_authz_core.c>
     Require all denied
 </IfModule>
 <IfModule !mod_authz_core.c>
+    Order allow,deny
     Deny from all
 </IfModule>
-
-Options -Indexes

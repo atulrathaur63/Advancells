@@ -31,15 +31,23 @@ if (Auth::isHR()) {
 ?>
 <aside class="app-sidebar">
     <div class="sidebar-header">
-        <a href="<?= url('dashboard') ?>" class="sidebar-brand-link" style="text-decoration: none;">
-            <img src="<?= url('assets/img/logo.png') ?>" alt="Advancells Group">
+        <a href="<?= url('dashboard') ?>" class="sidebar-brand-lockup">
+            <div class="brand-emblem-box">
+                <img src="<?= url('assets/img/fav.png') ?>" alt="Advancells" class="brand-emblem-img">
+            </div>
+            <div class="brand-meta">
+                <div class="brand-title-row">
+                    <span class="brand-name">Advancells Group</span>
+                </div>
+                <div class="brand-subtitle-row">
+                    <span class="brand-badge-pill">HRMS Portal</span>
+                    <span class="brand-live-chip">
+                        <span class="pulse-dot"></span>
+                        <span>LIVE</span>
+                    </span>
+                </div>
+            </div>
         </a>
-        <div class="sidebar-tagline">
-            <span>HRMS</span>
-            <span style="display:inline-flex; align-items:center; gap:5px; color:#10b981; font-size:10.5px; font-weight:700;">
-                <span class="pulse-dot" style="width:6px; height:6px;"></span> LIVE
-            </span>
-        </div>
     </div>
 
     <nav class="sidebar-nav">
@@ -69,6 +77,10 @@ if (Auth::isHR()) {
             <?php if ($pendingDocsCount > 0): ?>
                 <span class="badge badge-warning"><?= $pendingDocsCount ?></span>
             <?php endif; ?>
+        </a>
+        <a href="<?= url('company-assets') ?>" class="nav-item <?= (str_starts_with($currentRoute, 'company-assets') || str_starts_with($currentRoute, 'assets')) && !str_contains($currentRoute, 'my-assets') ? 'active' : '' ?>">
+            <span class="icon"><i class="fa-solid fa-laptop-file"></i></span>
+            <span>Asset Inventory</span>
         </a>
         <?php endif; ?>
         <?php else: ?>
@@ -123,6 +135,12 @@ if (Auth::isHR()) {
             <?php endif; ?>
         </a>
         <?php endif; ?>
+        <?php if (Auth::isHR()): ?>
+        <a href="<?= url('leaves/edit-balances') ?>" class="nav-item <?= $currentRoute === 'leaves/edit-balances' ? 'active' : '' ?>">
+            <span class="icon"><i class="fa-solid fa-scale-balanced"></i></span>
+            <span>Edit Leave Balances</span>
+        </a>
+        <?php endif; ?>
         <a href="<?= url('leaves/holidays') ?>" class="nav-item <?= $currentRoute === 'leaves/holidays' ? 'active' : '' ?>">
             <span class="icon"><i class="fa-solid fa-calendar-days"></i></span>
             <span>Holiday Calendar</span>
@@ -158,6 +176,10 @@ if (Auth::isHR()) {
         <a href="<?= url('documents/my-documents') ?>" class="nav-item <?= $currentRoute === 'documents/my-documents' ? 'active' : '' ?>">
             <span class="icon"><i class="fa-solid fa-file-shield"></i></span>
             <span>My Documents</span>
+        </a>
+        <a href="<?= url('company-assets/my-assets') ?>" class="nav-item <?= str_contains($currentRoute, 'my-assets') ? 'active' : '' ?>">
+            <span class="icon"><i class="fa-solid fa-laptop-medical"></i></span>
+            <span>My Assets</span>
         </a>
         <?php if (Auth::isManager()): ?>
         <a href="<?= url('resignations') ?>" class="nav-item <?= $currentRoute === 'resignations' ? 'active' : '' ?>">

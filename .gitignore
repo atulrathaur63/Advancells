@@ -1,3 +1,7 @@
+# Environment & secrets
+.env
+!.env.example
+
 # Scratch scripts & temporary tests
 scratch/
 

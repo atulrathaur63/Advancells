@@ -37,7 +37,12 @@ class AnnouncementController {
             redirect('announcements');
         }
 
-        $announcements = Announcement::getActive(Auth::role());
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = max(1, min(100, (int)($_GET['per_page'] ?? 10)));
+        $totalAnnouncements = Announcement::countActive(Auth::role());
+        $pagination = paginate($totalAnnouncements, $page, $perPage);
+        $announcements = Announcement::getActive(Auth::role(), $pagination['limit'], $pagination['offset']);
+
         require_once BASE_PATH . '/views/announcements/index.php';
     }
 }

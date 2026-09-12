@@ -83,11 +83,11 @@ require_once BASE_PATH . '/views/layouts/header.php';
                 <div class="form-group">
                     <label class="form-label" for="manager_id">Reporting Manager</label>
                     <select name="manager_id" id="manager_id" class="form-control">
-                        <option value="">None (Executive)</option>
+                        <option value="">None (Top-Level Executive)</option>
                         <?php foreach ($managers as $mgr): ?>
                             <?php if ($mgr['id'] != $employee['id']): ?>
                                 <option value="<?= $mgr['id'] ?>" <?= ($employee['manager_id'] == $mgr['id']) ? 'selected' : '' ?>>
-                                    <?= e($mgr['name']) ?>
+                                    <?= e($mgr['name']) ?> (<?= e($mgr['emp_code']) ?> - <?= e($mgr['designation']) ?>)
                                 </option>
                             <?php endif; ?>
                         <?php endforeach; ?>
