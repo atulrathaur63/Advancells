@@ -3,6 +3,8 @@ $pageTitle = 'Employee Self-Service (ESS)';
 require_once BASE_PATH . '/views/layouts/header.php';
 
 $totalAvailLeaves = (int)array_sum(array_column(array_filter($leaveBalances, fn($b) => $b['leave_type_code'] !== 'LOP'), 'available'));
+$currentHour = (int)date('H');
+$greetingText = ($currentHour < 12) ? 'Good morning' : (($currentHour < 17) ? 'Good afternoon' : 'Good evening');
 ?>
 
 <?php if (!empty($myCelebration)): ?>
@@ -50,19 +52,24 @@ $totalAvailLeaves = (int)array_sum(array_column(array_filter($leaveBalances, fn(
 
 <div class="grid-2 grid-equal-height" style="margin-bottom: 20px;">
     <!-- Welcome Executive Card -->
-    <div class="card" style="border-left: 4px solid var(--brand-plum);">
-        <div class="card-body" style="padding: 24px;">
+    <div class="card" style="border-left: 4px solid var(--brand-plum); background: radial-gradient(at top left, rgba(164, 36, 122, 0.05), transparent 70%), radial-gradient(at bottom right, rgba(90, 168, 159, 0.06), transparent 70%), #ffffff;">
+        <div class="card-body" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
             <div>
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                    <span class="badge badge-magenta">
-                        <i class="fa-solid fa-id-badge" style="margin-right: 4px;"></i> Advancells ESS Portal
-                    </span>
-                    <span style="font-family: monospace; font-size: 11.5px; color: var(--text-muted); font-weight: 700; background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">
-                        <?= e($user['emp_code'] ?? 'ADV-EMP') ?>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="badge badge-magenta">
+                            <i class="fa-solid fa-id-badge" style="margin-right: 4px;"></i> Advancells ESS Portal
+                        </span>
+                        <span style="font-family: monospace; font-size: 11px; color: var(--text-muted); font-weight: 700; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; border: 1px solid #e2e8f0;">
+                            <?= e($user['emp_code'] ?? 'ADV-EMP') ?>
+                        </span>
+                    </div>
+                    <span style="font-size: 11px; font-weight: 600; color: var(--text-muted);">
+                        <i class="fa-regular fa-calendar" style="margin-right: 4px; color: var(--brand-plum);"></i> <?= date('l, d M Y') ?>
                     </span>
                 </div>
-                <h2 style="font-family: var(--font-heading); font-size: 24px; font-weight: 800; color: var(--text-main); margin-bottom: 6px;">
-                    Welcome back, <?= e($user['first_name'] ?? $user['name']) ?>!
+                <h2 style="font-family: var(--font-heading); font-size: 24px; font-weight: 800; color: var(--text-main); margin-bottom: 6px; letter-spacing: -0.01em;">
+                    <?= $greetingText ?>, <?= e($user['first_name'] ?? $user['name']) ?>!
                 </h2>
                 <p style="color: var(--text-muted); font-size: 13px; line-height: 1.5; margin-bottom: 22px;">
                     Department: <strong style="color: var(--text-main);"><?= e($user['department_name'] ?? 'Advancells Biotech') ?></strong> • 
